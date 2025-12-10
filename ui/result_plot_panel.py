@@ -61,3 +61,65 @@ class ResultPlotPanel(QWidget):
         ax.set_title(f"Preview for {name}")
         ax.legend()
         self.canvas.draw_idle()
+
+    def _prepare_ax(self, title: str, xlabel: str, ylabel: str):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        return ax
+
+    def show_fuzzy_brake_result(self, result: dict) -> None:
+        x = np.asarray(result.get("x", []))
+        y = np.asarray(result.get("y", []))
+        ax = self._prepare_ax("Fuzzy Brake Force", "Input", "Brake Force")
+        if x.size and y.size:
+            ax.plot(x, y, label="Brake force")
+            ax.legend()
+        self.canvas.draw_idle()
+
+    def show_nqueens_result(self, result: dict) -> None:
+        x = np.asarray(result.get("generation", result.get("x", [])))
+        y = np.asarray(result.get("fitness", result.get("y", [])))
+        ax = self._prepare_ax("GA n-Queens Fitness", "Generation", "Fitness / Conflicts")
+        if x.size and y.size:
+            ax.plot(x, y, label="Fitness")
+            ax.legend()
+        self.canvas.draw_idle()
+
+    def show_tsp_result(self, result: dict) -> None:
+        x = np.asarray(result.get("generation", result.get("x", [])))
+        y = np.asarray(result.get("distance", result.get("y", [])))
+        ax = self._prepare_ax("GA TSP Distance", "Generation", "Path Distance")
+        if x.size and y.size:
+            ax.plot(x, y, label="Distance", color="tab:orange")
+            ax.legend()
+        self.canvas.draw_idle()
+
+    def show_linear_regression_result(self, result: dict) -> None:
+        x = np.asarray(result.get("x", []))
+        y = np.asarray(result.get("y", []))
+        ax = self._prepare_ax("Linear Regression", "x", "y / prediction")
+        if x.size and y.size:
+            ax.plot(x, y, label="Regression", color="tab:green")
+            ax.legend()
+        self.canvas.draw_idle()
+
+    def show_ann_func_estimation_result(self, result: dict) -> None:
+        x = np.asarray(result.get("x", []))
+        y = np.asarray(result.get("y", []))
+        ax = self._prepare_ax("ANN Function Estimation", "x", "y")
+        if x.size and y.size:
+            ax.plot(x, y, label="ANN Output", color="tab:red")
+            ax.legend()
+        self.canvas.draw_idle()
+
+    def show_ann_hdb_result(self, result: dict) -> None:
+        x = np.asarray(result.get("epoch", result.get("x", [])))
+        y = np.asarray(result.get("metric", result.get("y", [])))
+        ax = self._prepare_ax("ANN HDB Classification", "Epoch", "Metric")
+        if x.size and y.size:
+            ax.plot(x, y, label="Metric", color="tab:purple")
+            ax.legend()
+        self.canvas.draw_idle()

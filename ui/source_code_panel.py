@@ -5,6 +5,8 @@ the source associated with the selected algorithm.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QLabel, QTextEdit, QVBoxLayout, QWidget
 
@@ -44,3 +46,14 @@ class SourceCodePanel(QWidget):
         """
         self.title_label.setText(f"Source Code - {name}")
         self.editor.setPlainText(f"# Placeholder source for {name}\nprint('Running {name}')")
+
+    def load_real_source(self, filepath: str) -> None:
+        """Load a real source file from disk, showing an error if missing."""
+        path = Path(filepath)
+        self.title_label.setText(f"Source Code - {path.name}")
+        try:
+            content = path.read_text()
+        except FileNotFoundError:
+            self.editor.setPlainText(f"% Source file not found:\n% {path}")
+            return
+        self.editor.setPlainText(content)

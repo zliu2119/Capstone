@@ -6,9 +6,17 @@ panels. Uses QSplitter to allow resizable panes similar to Octave/Matlab.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMainWindow, QSplitter, QWidget
 
+from algorithms.ann_func_estimation import run_ann_func_estimation
+from algorithms.ann_hdb_classification import run_ann_hdb_classification
+from algorithms.fuzzy_car_brake import run_fuzzy_car_brake
+from algorithms.ga_nqueens import run_ga_nqueens
+from algorithms.ga_tsp import run_ga_tsp
+from algorithms.linear_regression_octave import run_linear_regression
 from ui.algo_list_panel import AlgoListPanel
 from ui.algo_ui_panel import AlgoUIPanel
 from ui.menu_bar import MenuBar
@@ -31,13 +39,12 @@ class MainWindow(QMainWindow):
     """
 
     ALGORITHMS = [
-        "1- Fuzzy Logic: Car Brake",
-        "2- Fuzzy Logic2: Car Brake, Advanced",
-        "3- Genetic Algorithm: n-Queens",
-        "4- Genetic Algorithms: Traveling Salesman",
-        "8- ANN Example 1: Function Estimation",
-        "9- ANN Example 2: HDB Classification",
-        "17- Linear Regression",
+        "Fuzzy Logic: Car Brake",
+        "Genetic Algorithm: n-Queens",
+        "Genetic Algorithm: Traveling Salesman",
+        "Linear Regression",
+        "ANN Example 1: Function Estimation",
+        "ANN Example 2: HDB Classification",
     ]
 
     def __init__(self):
@@ -90,6 +97,7 @@ class MainWindow(QMainWindow):
     def _wire_actions(self) -> None:
         """Connect list selection changes to the handler slot."""
         self.algo_list_panel.current_row_changed(self.on_algorithm_selected)
+        self.algo_ui_panel.run_requested.connect(self.on_run_algorithm)
 
     def select_algorithm_by_name(self, name: str) -> None:
         """Select algorithm in list by its display name and trigger updates.
@@ -127,3 +135,59 @@ class MainWindow(QMainWindow):
         self.algo_ui_panel.update_for_algorithm(name)
         self.source_code_panel.load_source_for_algorithm(name)
         self.result_plot_panel.reset_for_algorithm(name)
+
+    # ---- algorithm dispatch ----------------------------------------------
+
+    def on_run_algorithm(self, algo_name: str, params: dict) -> None:
+        """Dispatch algorithm execution to the correct Octave wrapper."""
+        name = algo_name
+        if "Fuzzy Logic: Car Brake" in name:
+            result = run_fuzzy_car_brake(params.get("speed", 0.0), params.get("distance", 0.0))
+            self.result_plot_panel.show_fuzzy_brake_result(result)
+            self._show_mfile_source("fuzzy_car_brake.m")
+        elif "Genetic Algorithm: n-Queens" in name:
+            result = run_ga_nqueens(
+                params.get("n", 8),
+                params.get("population_size", 200),
+                params.get("mutation_rate", 0.05),
+                params.get("generations", 200),
+            )
+            self.result_plot_panel.show_nqueens_result(result)
+            self._show_mfile_source("ga_nqueens.m")
+        elif "Genetic Algorithm: Traveling Salesman" in name:
+            result = run_ga_tsp(
+                params.get("city_count", 20),
+                params.get("population_size", 200),
+                params.get("mutation_rate", 0.1),
+                params.get("generations", 300),
+            )
+            self.result_plot_panel.show_tsp_result(result)
+            self._show_mfile_source("ga_tsp.m")
+        elif "Linear Regression" in name:
+            result = run_linear_regression(
+                params.get("sample_count", 50),
+                params.get("learning_rate", 0.01),
+                params.get("epochs", 500),
+            )
+            self.result_plot_panel.show_linear_regression_result(result)
+            self._show_mfile_source("linear_regression.m")
+        elif "ANN Example 1: Function Estimation" in name:
+            result = run_ann_func_estimation(
+                params.get("sample_count", 100),
+                params.get("noise", 0.1),
+                params.get("epochs", 200),
+            )
+            self.result_plot_panel.show_ann_func_estimation_result(result)
+            self._show_mfile_source("ann_func_estimation.m")
+        elif "ANN Example 2: HDB Classification" in name:
+            result = run_ann_hdb_classification(
+                params.get("epochs", 300),
+                params.get("learning_rate", 0.01),
+            )
+            self.result_plot_panel.show_ann_hdb_result(result)
+            self._show_mfile_source("ann_hdb_classification.m")
+
+    def _show_mfile_source(self, filename: str) -> None:
+        base = Path(__file__).resolve().parent.parent
+        path = base / "algorithms" / "mfiles" / filename
+        self.source_code_panel.load_real_source(str(path))
