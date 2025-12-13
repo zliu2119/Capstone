@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMainWindow, QSplitter, QWidget
+from PySide6.QtWidgets import QMessageBox, QMainWindow, QSplitter, QWidget
 
 from algorithms.ann_func_estimation import run_ann_func_estimation
 from algorithms.ann_hdb_classification import run_ann_hdb_classification
@@ -17,6 +17,10 @@ from algorithms.fuzzy_car_brake import run_fuzzy_car_brake
 from algorithms.ga_nqueens import run_ga_nqueens
 from algorithms.ga_tsp import run_ga_tsp
 from algorithms.linear_regression_octave import run_linear_regression
+try:
+    from oct2py import Oct2PyError
+except ImportError:  # Allow UI to load without oct2py installed.
+    Oct2PyError = RuntimeError  # type: ignore
 from ui.algo_list_panel import AlgoListPanel
 from ui.algo_ui_panel import AlgoUIPanel
 from ui.menu_bar import MenuBar
@@ -141,53 +145,71 @@ class MainWindow(QMainWindow):
     def on_run_algorithm(self, algo_name: str, params: dict) -> None:
         """Dispatch algorithm execution to the correct Octave wrapper."""
         name = algo_name
-        if "Fuzzy Logic: Car Brake" in name:
-            result = run_fuzzy_car_brake(params.get("speed", 0.0), params.get("distance", 0.0))
-            self.result_plot_panel.show_fuzzy_brake_result(result)
-            self._show_mfile_source("fuzzy_car_brake.m")
-        elif "Genetic Algorithm: n-Queens" in name:
-            result = run_ga_nqueens(
-                params.get("n", 8),
-                params.get("population_size", 200),
-                params.get("mutation_rate", 0.05),
-                params.get("generations", 200),
+        try:
+            if "Fuzzy Logic: Car Brake" in name:
+                result = run_fuzzy_car_brake(params.get("speed", 0.0), params.get("distance", 0.0))
+                self.result_plot_panel.show_fuzzy_brake_result(result)
+                self._show_mfile_source("fuzzy_car_brake.m")
+            elif "Genetic Algorithm: n-Queens" in name:
+                result = run_ga_nqueens(
+                    params.get("n", 8),
+                    params.get("population_size", 200),
+                    params.get("mutation_rate", 0.05),
+                    params.get("generations", 200),
+                )
+                self.result_plot_panel.show_nqueens_result(result)
+                self._show_mfile_source("ga_nqueens.m")
+            elif "Genetic Algorithm: Traveling Salesman" in name:
+                result = run_ga_tsp(
+                    params.get("city_count", 20),
+                    params.get("population_size", 200),
+                    params.get("mutation_rate", 0.1),
+                    params.get("generations", 300),
+                )
+                self.result_plot_panel.show_tsp_result(result)
+                self._show_mfile_source("ga_tsp.m")
+            elif "Linear Regression" in name:
+                result = run_linear_regression(
+                    params.get("sample_count", 50),
+                    params.get("learning_rate", 0.01),
+                    params.get("epochs", 500),
+                )
+                self.result_plot_panel.show_linear_regression_result(result)
+                self._show_mfile_source("linear_regression.m")
+            elif "ANN Example 1: Function Estimation" in name:
+                result = run_ann_func_estimation(
+                    params.get("sample_count", 100),
+                    params.get("noise", 0.1),
+                    params.get("epochs", 200),
+                )
+                self.result_plot_panel.show_ann_func_estimation_result(result)
+                self._show_mfile_source("ann_func_estimation.m")
+            elif "ANN Example 2: HDB Classification" in name:
+                result = run_ann_hdb_classification(
+                    params.get("epochs", 300),
+                    params.get("learning_rate", 0.01),
+                )
+                self.result_plot_panel.show_ann_hdb_result(result)
+                self._show_mfile_source("ann_hdb_classification.m")
+        except Oct2PyError as exc:
+            self._show_error(
+                "Octave error",
+                f"Octave raised an error while running {name}:\n{exc}",
+                detail="Make sure required Octave toolboxes are installed and the .m file matches the expected function.",
             )
-            self.result_plot_panel.show_nqueens_result(result)
-            self._show_mfile_source("ga_nqueens.m")
-        elif "Genetic Algorithm: Traveling Salesman" in name:
-            result = run_ga_tsp(
-                params.get("city_count", 20),
-                params.get("population_size", 200),
-                params.get("mutation_rate", 0.1),
-                params.get("generations", 300),
-            )
-            self.result_plot_panel.show_tsp_result(result)
-            self._show_mfile_source("ga_tsp.m")
-        elif "Linear Regression" in name:
-            result = run_linear_regression(
-                params.get("sample_count", 50),
-                params.get("learning_rate", 0.01),
-                params.get("epochs", 500),
-            )
-            self.result_plot_panel.show_linear_regression_result(result)
-            self._show_mfile_source("linear_regression.m")
-        elif "ANN Example 1: Function Estimation" in name:
-            result = run_ann_func_estimation(
-                params.get("sample_count", 100),
-                params.get("noise", 0.1),
-                params.get("epochs", 200),
-            )
-            self.result_plot_panel.show_ann_func_estimation_result(result)
-            self._show_mfile_source("ann_func_estimation.m")
-        elif "ANN Example 2: HDB Classification" in name:
-            result = run_ann_hdb_classification(
-                params.get("epochs", 300),
-                params.get("learning_rate", 0.01),
-            )
-            self.result_plot_panel.show_ann_hdb_result(result)
-            self._show_mfile_source("ann_hdb_classification.m")
+        except Exception as exc:
+            self._show_error("Unexpected error", str(exc))
 
     def _show_mfile_source(self, filename: str) -> None:
         base = Path(__file__).resolve().parent.parent
         path = base / "algorithms" / "mfiles" / filename
         self.source_code_panel.load_real_source(str(path))
+
+    def _show_error(self, title: str, message: str, detail: str | None = None) -> None:
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Critical)
+        box.setWindowTitle(title)
+        box.setText(message)
+        if detail:
+            box.setInformativeText(detail)
+        box.exec()

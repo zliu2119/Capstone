@@ -1,19 +1,40 @@
-"""Wrapper for the Octave fuzzy car brake model."""
+"""Wrapper for the Octave fuzzy car brake model.
+
+Adapts the Octave function to Python-friendly data structures that the GUI
+panels can consume for plotting and display.
+"""
 from __future__ import annotations
 
 import numpy as np
+from oct2py import Oct2PyError
 
-from .octave_common import call_octave_function, normalize_xy
+from .octave_bridge import get_oc
+
+
+def _eval_single(speed_kmh: float, distance_m: float) -> float:
+    oc = get_oc()
+    return float(oc.feval("fuzzy_car_brake", speed_kmh, distance_m, nout=1))
 
 
 def run_fuzzy_car_brake(speed_kmh: float, distance_m: float) -> dict:
-    """Execute the fuzzy car brake Octave model."""
-    raw = call_octave_function("fuzzy_car_brake", (speed_kmh, distance_m), preferred_nouts=(2, 1))
-    data = normalize_xy(raw)
-    data.setdefault("speed_kmh", speed_kmh)
-    data.setdefault("distance_m", distance_m)
-    # Provide a sensible x-axis if the model returns only a y vector.
-    if "x" not in data and "y" in data:
-        y = np.asarray(data["y"]).squeeze()
-        data["x"] = np.arange(y.size)
-    return data
+    """Execute the fuzzy car brake Octave model and sweep distance for plotting."""
+    # Evaluate the user-specified point.
+    point_value = _eval_single(speed_kmh, distance_m)
+
+    # Sweep distance to build a curve (keep speed fixed).
+    distances = np.linspace(1, 100, 80)
+    outputs = []
+    oc = get_oc()
+    for d in distances:
+        try:
+            outputs.append(float(oc.feval("fuzzy_car_brake", speed_kmh, float(d), nout=1)))
+        except Oct2PyError:
+            outputs.append(np.nan)
+
+    return {
+        "x": distances,
+        "y": np.array(outputs, dtype=float),
+        "speed_kmh": speed_kmh,
+        "input_distance_m": distance_m,
+        "input_output": point_value,
+    }

@@ -71,11 +71,16 @@ class ResultPlotPanel(QWidget):
         return ax
 
     def show_fuzzy_brake_result(self, result: dict) -> None:
-        x = np.asarray(result.get("x", []))
-        y = np.asarray(result.get("y", []))
-        ax = self._prepare_ax("Fuzzy Brake Force", "Input", "Brake Force")
+        x = np.asarray(result.get("x", []), dtype=float)
+        y = np.asarray(result.get("y", []), dtype=float)
+        point_y = result.get("input_output")
+        point_x = result.get("input_distance_m")
+        ax = self._prepare_ax("Fuzzy Brake Force", "Distance (m)", "Brake Force")
         if x.size and y.size:
             ax.plot(x, y, label="Brake force")
+        if point_x is not None and point_y is not None:
+            ax.plot([point_x], [point_y], marker="o", color="red", label="Input point")
+        if ax.has_data():
             ax.legend()
         self.canvas.draw_idle()
 

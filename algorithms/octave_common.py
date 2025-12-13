@@ -1,4 +1,10 @@
-"""Utility helpers for calling Octave models from Python wrappers."""
+"""Utility helpers for calling Octave models from Python wrappers.
+
+Provides thin convenience functions used by all algorithm adapters:
+- `call_octave_function` to invoke an Octave function with flexible output arity.
+- `normalize_xy` to coerce Octave return data into NumPy arrays friendly for plotting.
+These helpers centralize interaction logic so the per-algorithm wrappers stay small.
+"""
 from __future__ import annotations
 
 from typing import Iterable, Sequence
@@ -13,7 +19,27 @@ from .octave_bridge import get_oc
 
 
 def call_octave_function(func_name: str, args: Sequence, preferred_nouts: Iterable[int] = (3, 2, 1)):
-    """Call an Octave function, trying multiple output counts for flexibility."""
+    """Call an Octave function, trying multiple output counts for flexibility.
+
+    Parameters
+    ----------
+    func_name : str
+        Name of the Octave function to call.
+    args : Sequence
+        Positional arguments forwarded to the Octave function.
+    preferred_nouts : Iterable[int], default (3, 2, 1)
+        Ordered output counts to attempt; Octave errors are caught and retried.
+
+    Returns
+    -------
+    Any
+        Raw result from Octave; structure varies by model.
+
+    Raises
+    ------
+    Oct2PyError
+        If all output arities fail, the last error is raised.
+    """
     oc = get_oc()
     last_err: Oct2PyError | None = None
     for nout in preferred_nouts:
@@ -28,7 +54,23 @@ def call_octave_function(func_name: str, args: Sequence, preferred_nouts: Iterab
 
 
 def normalize_xy(raw, x_label: str = "x", y_label: str = "y"):
-    """Normalize Octave return values into a plotting-friendly dict of arrays."""
+    """Normalize Octave return values into a plotting-friendly dict of arrays.
+
+    Parameters
+    ----------
+    raw : Any
+        Value returned from Octave; can be scalar, array, tuple, or dict.
+    x_label : str
+        Label to assign the x-axis array in the returned mapping.
+    y_label : str
+        Label to assign the y-axis array in the returned mapping.
+
+    Returns
+    -------
+    dict[str, np.ndarray | Any]
+        A mapping with x/y NumPy arrays when possible; falls back to the
+        original data layout if conversion is ambiguous.
+    """
     if raw is None:
         return {x_label: np.array([]), y_label: np.array([])}
 
