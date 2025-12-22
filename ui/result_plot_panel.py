@@ -76,12 +76,15 @@ class ResultPlotPanel(QWidget):
         point_y = result.get("input_output")
         point_x = result.get("input_distance_m")
         ax = self._prepare_ax("Fuzzy Brake Force", "Distance (m)", "Brake Force")
+        ax.tick_params(axis="both", labelsize=9)
+        ax.margins(x=0.02, y=0.1)
         if x.size and y.size:
-            ax.plot(x, y, label="Brake force")
+            ax.plot(x, y, label="Brake force curve", linewidth=2.0)
         if point_x is not None and point_y is not None:
-            ax.plot([point_x], [point_y], marker="o", color="red", label="Input point")
+            ax.plot([point_x], [point_y], marker="o", color="red", markersize=6, zorder=5, label="Input point")
         if ax.has_data():
-            ax.legend()
+            ax.legend(loc="upper left", fontsize=9, frameon=True)
+        self.figure.tight_layout()
         self.canvas.draw_idle()
 
     def show_nqueens_result(self, result: dict) -> None:

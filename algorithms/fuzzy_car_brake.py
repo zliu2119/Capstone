@@ -12,6 +12,7 @@ from .octave_bridge import get_oc
 
 
 def _eval_single(speed_kmh: float, distance_m: float) -> float:
+    """Evaluate a single speed/distance point using the Octave model."""
     oc = get_oc()
     return float(oc.feval("fuzzy_car_brake", speed_kmh, distance_m, nout=1))
 
