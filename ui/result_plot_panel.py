@@ -9,6 +9,7 @@ from __future__ import annotations
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 
@@ -26,7 +27,7 @@ class ResultPlotPanel(QWidget):
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.title_label = QLabel("Result Plot")
         self._setup_ui()
-        self._plot_placeholder()
+        self._clear_plot()
 
     def _setup_ui(self) -> None:
         """Assemble label and canvas into a vertical layout."""
@@ -35,14 +36,9 @@ class ResultPlotPanel(QWidget):
         layout.addWidget(self.canvas)
         layout.setContentsMargins(4, 4, 4, 4)
 
-    def _plot_placeholder(self) -> None:
-        """Draw an initial placeholder plot to indicate the panel purpose."""
-        ax = self.figure.add_subplot(111)
-        x = np.linspace(0, 2 * np.pi, 200)
-        ax.plot(x, np.sin(x), label="sin(x)")
-        ax.set_xlabel("x")
-        ax.set_ylabel("sin(x)")
-        ax.legend()
+    def _clear_plot(self) -> None:
+        """Clear the figure when no algorithm output is available yet."""
+        self.figure.clear()
         self.canvas.draw_idle()
 
     def reset_for_algorithm(self, name: str) -> None:
@@ -54,13 +50,7 @@ class ResultPlotPanel(QWidget):
             Display name of the algorithm currently selected.
         """
         self.title_label.setText(f"Result Plot - {name}")
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        x = np.linspace(0, 2 * np.pi, 200)
-        ax.plot(x, np.sin(x), label=f"{name} placeholder")
-        ax.set_title(f"Preview for {name}")
-        ax.legend()
-        self.canvas.draw_idle()
+        self._clear_plot()
 
     def _prepare_ax(self, title: str, xlabel: str, ylabel: str):
         self.figure.clear()
@@ -76,15 +66,32 @@ class ResultPlotPanel(QWidget):
         point_y = result.get("input_output")
         point_x = result.get("input_distance_m")
         ax = self._prepare_ax("Fuzzy Brake Force", "Distance (m)", "Brake Force")
-        ax.tick_params(axis="both", labelsize=9)
-        ax.margins(x=0.02, y=0.1)
+        ax.set_xlabel("Distance (m)", fontsize=11, labelpad=6)
+        ax.set_ylabel("Brake Force", fontsize=11, labelpad=6)
+        ax.tick_params(axis="both", labelsize=10)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
+        ax.margins(x=0.03, y=0.12)
         if x.size and y.size:
-            ax.plot(x, y, label="Brake force curve", linewidth=2.0)
+            ax.plot(x, y, label="Brake force curve", linewidth=2.5)
         if point_x is not None and point_y is not None:
-            ax.plot([point_x], [point_y], marker="o", color="red", markersize=6, zorder=5, label="Input point")
+            ax.plot(
+                [point_x],
+                [point_y],
+                marker="o",
+                color="red",
+                markersize=7,
+                zorder=6,
+                label="Input point",
+            )
         if ax.has_data():
-            ax.legend(loc="upper left", fontsize=9, frameon=True)
-        self.figure.tight_layout()
+            ax.legend(
+                loc="upper left",
+                bbox_to_anchor=(1.02, 1.0),
+                fontsize=9,
+                frameon=True,
+            )
+        self.figure.tight_layout(rect=[0.0, 0.0, 0.88, 1.0])
         self.canvas.draw_idle()
 
     def show_nqueens_result(self, result: dict) -> None:
@@ -106,12 +113,16 @@ class ResultPlotPanel(QWidget):
         self.canvas.draw_idle()
 
     def show_linear_regression_result(self, result: dict) -> None:
-        x = np.asarray(result.get("x", []))
-        y = np.asarray(result.get("y", []))
-        ax = self._prepare_ax("Linear Regression", "x", "y / prediction")
+        # Plot loss vs. epoch; fall back to generic x/y if not present.
+        x = np.asarray(result.get("epoch", result.get("x", [])), dtype=float)
+        y = np.asarray(result.get("loss", result.get("y", [])), dtype=float)
+        ax = self._prepare_ax("Linear Regression", "Epoch", "Loss")
+        ax.tick_params(axis="both", labelsize=9)
+        ax.margins(x=0.02, y=0.1)
         if x.size and y.size:
-            ax.plot(x, y, label="Regression", color="tab:green")
-            ax.legend()
+            ax.plot(x, y, label="Loss", color="tab:green", linewidth=2.0)
+            ax.legend(loc="best", fontsize=9, frameon=True)
+        self.figure.tight_layout()
         self.canvas.draw_idle()
 
     def show_ann_func_estimation_result(self, result: dict) -> None:
