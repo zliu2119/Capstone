@@ -29,7 +29,7 @@ def run_ga_nqueens(n: int, population_size: int = 100, mutation_rate: float = 0.
     raw = call_octave_function(
         "ga_nqueens",
         (n, population_size, mutation_rate, generations),
-        preferred_nouts=(3, 2, 1),
+        preferred_nouts=(2,),
     )
     data = normalize_xy(raw, x_label="generation", y_label="fitness")
     data.setdefault("n", n)

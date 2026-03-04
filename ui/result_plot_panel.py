@@ -126,19 +126,41 @@ class ResultPlotPanel(QWidget):
         self.canvas.draw_idle()
 
     def show_ann_func_estimation_result(self, result: dict) -> None:
-        x = np.asarray(result.get("x", []))
-        y = np.asarray(result.get("y", []))
-        ax = self._prepare_ax("ANN Function Estimation", "x", "y")
-        if x.size and y.size:
-            ax.plot(x, y, label="ANN Output", color="tab:red")
-            ax.legend()
+        x = np.asarray(result.get("x", []), dtype=float)
+        # Prefer explicit ANN keys; keep legacy `y` compatibility for older wrappers.
+        y_pred = np.asarray(result.get("y_pred", result.get("y", [])), dtype=float)
+        y_true = np.asarray(result.get("y_true", []), dtype=float)
+        backend = result.get("backend")
+        title = "ANN Function Estimation"
+        if backend:
+            title = f"{title} ({backend})"
+        ax = self._prepare_ax(title, "x", "y")
+
+        if x.size and y_true.size:
+            ax.plot(x, y_true, "o", markersize=3.5, alpha=0.7, label="Target / Samples", color="tab:blue")
+        if x.size and y_pred.size:
+            ax.plot(x, y_pred, label="Prediction", color="tab:red", linewidth=2.0)
+        elif x.size and np.asarray(result.get("y", [])).size:
+            ax.plot(x, np.asarray(result.get("y", []), dtype=float), label="ANN Output", color="tab:red")
+        if ax.has_data():
+            ax.legend(loc="best", fontsize=9)
+        self.figure.tight_layout()
         self.canvas.draw_idle()
 
     def show_ann_hdb_result(self, result: dict) -> None:
-        x = np.asarray(result.get("epoch", result.get("x", [])))
-        y = np.asarray(result.get("metric", result.get("y", [])))
-        ax = self._prepare_ax("ANN HDB Classification", "Epoch", "Metric")
+        # Accept both new schema (`epoch`/`metric`) and legacy (`x`/`y`).
+        x = np.asarray(result.get("epoch", result.get("x", [])), dtype=float)
+        y = np.asarray(result.get("metric", result.get("y", [])), dtype=float)
+        backend = result.get("backend")
+        accuracy = result.get("accuracy")
+        title = "ANN HDB Classification"
+        if backend:
+            title = f"{title} ({backend})"
+        if accuracy is not None:
+            title = f"{title}, Acc={float(accuracy):.3f}"
+        ax = self._prepare_ax(title, "Epoch", "Metric")
         if x.size and y.size:
-            ax.plot(x, y, label="Metric", color="tab:purple")
-            ax.legend()
+            ax.plot(x, y, label="Loss / Metric", color="tab:purple", linewidth=2.0)
+            ax.legend(loc="best", fontsize=9)
+        self.figure.tight_layout()
         self.canvas.draw_idle()

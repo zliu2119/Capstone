@@ -28,7 +28,7 @@ def run_linear_regression(sample_count: int = 50, learning_rate: float = 0.01, e
     raw = call_octave_function(
         "linear_regression",
         (sample_count, learning_rate, epochs),
-        preferred_nouts=(3, 2, 1),
+        preferred_nouts=(3,),
     )
     data = normalize_xy(raw, x_label="epoch", y_label="loss")
     data.setdefault("sample_count", sample_count)

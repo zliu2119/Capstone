@@ -34,7 +34,7 @@ def run_ga_tsp(
     raw = call_octave_function(
         "ga_tsp",
         (city_count, population_size, mutation_rate, generations),
-        preferred_nouts=(3, 2, 1),
+        preferred_nouts=(2,),
     )
     data = normalize_xy(raw, x_label="generation", y_label="distance")
     data.setdefault("city_count", city_count)

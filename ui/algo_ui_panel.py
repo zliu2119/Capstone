@@ -48,7 +48,13 @@ class AlgoUIPanel(QWidget):
         """Switch the UI form to match the selected algorithm."""
         self.current_algorithm_name = name
         match_key = self._match_key(name)
-        widget = self.forms.get(match_key, (self.placeholder, lambda: {}))[0]
+        if match_key:
+            widget = self.forms[match_key][0]
+        else:
+            self.placeholder.setText(
+                f"{name}\n\nThis item is currently wired for source preview only.\nExecution wiring will be added in the next round."
+            )
+            widget = self.placeholder
         self.stack.setCurrentWidget(widget)
 
     # ---- internal helpers -------------------------------------------------
@@ -58,7 +64,7 @@ class AlgoUIPanel(QWidget):
         self.forms = {
             "Fuzzy Logic: Car Brake": self._create_fuzzy_form(),
             "Genetic Algorithm: n-Queens": self._create_nqueens_form(),
-            "Genetic Algorithm: Traveling Salesman": self._create_tsp_form(),
+            "Genetic Algorithm: Travelling Salesman": self._create_tsp_form(),
             "Linear Regression": self._create_linear_regression_form(),
             "ANN Example 1: Function Estimation": self._create_ann_func_form(),
             "ANN Example 2: HDB Classification": self._create_ann_hdb_form(),
@@ -122,7 +128,7 @@ class AlgoUIPanel(QWidget):
 
         pop = QSpinBox()
         pop.setRange(10, 5000)
-        pop.setValue(200)
+        pop.setValue(120)
 
         mutation = QDoubleSpinBox()
         mutation.setRange(0.0, 1.0)
@@ -131,7 +137,7 @@ class AlgoUIPanel(QWidget):
 
         generations = QSpinBox()
         generations.setRange(10, 5000)
-        generations.setValue(200)
+        generations.setValue(120)
 
         def gather():
             params = {
@@ -162,11 +168,11 @@ class AlgoUIPanel(QWidget):
     def _create_tsp_form(self) -> Tuple[QWidget, Callable[[], dict]]:
         cities = QSpinBox()
         cities.setRange(4, 200)
-        cities.setValue(20)
+        cities.setValue(15)
 
         pop = QSpinBox()
         pop.setRange(10, 10000)
-        pop.setValue(200)
+        pop.setValue(120)
 
         mutation = QDoubleSpinBox()
         mutation.setRange(0.0, 1.0)
@@ -175,7 +181,7 @@ class AlgoUIPanel(QWidget):
 
         generations = QSpinBox()
         generations.setRange(10, 10000)
-        generations.setValue(300)
+        generations.setValue(140)
 
         def gather():
             params = {
@@ -187,7 +193,7 @@ class AlgoUIPanel(QWidget):
             self.run_requested.emit(self.current_algorithm_name, params)
 
         widget = self._create_form(
-            "Genetic Algorithm: Traveling Salesman",
+            "Genetic Algorithm: Travelling Salesman",
             {
                 "City count": cities,
                 "Population size": pop,
@@ -206,7 +212,7 @@ class AlgoUIPanel(QWidget):
     def _create_linear_regression_form(self) -> Tuple[QWidget, Callable[[], dict]]:
         samples = QSpinBox()
         samples.setRange(10, 10000)
-        samples.setValue(50)
+        samples.setValue(40)
 
         lr = QDoubleSpinBox()
         lr.setRange(0.0001, 1.0)
@@ -216,7 +222,7 @@ class AlgoUIPanel(QWidget):
 
         epochs = QSpinBox()
         epochs.setRange(10, 20000)
-        epochs.setValue(500)
+        epochs.setValue(220)
 
         def gather():
             params = {"sample_count": samples.value(), "learning_rate": lr.value(), "epochs": epochs.value()}
@@ -232,7 +238,7 @@ class AlgoUIPanel(QWidget):
     def _create_ann_func_form(self) -> Tuple[QWidget, Callable[[], dict]]:
         samples = QSpinBox()
         samples.setRange(10, 10000)
-        samples.setValue(100)
+        samples.setValue(80)
 
         noise = QDoubleSpinBox()
         noise.setRange(0.0, 5.0)
@@ -241,7 +247,7 @@ class AlgoUIPanel(QWidget):
 
         epochs = QSpinBox()
         epochs.setRange(10, 10000)
-        epochs.setValue(200)
+        epochs.setValue(120)
 
         def gather():
             params = {"sample_count": samples.value(), "noise": noise.value(), "epochs": epochs.value()}
@@ -257,7 +263,7 @@ class AlgoUIPanel(QWidget):
     def _create_ann_hdb_form(self) -> Tuple[QWidget, Callable[[], dict]]:
         epochs = QSpinBox()
         epochs.setRange(10, 20000)
-        epochs.setValue(300)
+        epochs.setValue(140)
 
         lr = QDoubleSpinBox()
         lr.setRange(0.0001, 1.0)

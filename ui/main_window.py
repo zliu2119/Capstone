@@ -43,13 +43,21 @@ class MainWindow(QMainWindow):
     """
 
     ALGORITHMS = [
-        "Fuzzy Logic: Car Brake",
-        "Genetic Algorithm: n-Queens",
-        "Genetic Algorithm: Traveling Salesman",
-        "Linear Regression",
-        "ANN Example 1: Function Estimation",
-        "ANN Example 2: HDB Classification",
+        "1-Fuzzy Logic: Car Brake",
+        "2-Genetic Algorithm: n-Queens",
+        "3-Genetic Algorithm: Travelling Salesman",
+        "4-Linear Regression",
+        "5-ANN Example 1: Function Estimation",
+        "6-ANN Example 2: HDB Classification",
     ]
+    ALGO_TO_MFILE = {
+        "1-Fuzzy Logic: Car Brake": "fuzzy_car_brake.m",
+        "2-Genetic Algorithm: n-Queens": "ga_nqueens.m",
+        "3-Genetic Algorithm: Travelling Salesman": "ga_tsp.m",
+        "4-Linear Regression": "linear_regression.m",
+        "5-ANN Example 1: Function Estimation": "nn1p.m",
+        "6-ANN Example 2: HDB Classification": "nn6_resale1p.m",
+    }
 
     def __init__(self):
         super().__init__()
@@ -137,7 +145,7 @@ class MainWindow(QMainWindow):
         name = item.text()
         self.setWindowTitle(f"Algorithm GUI - {name}")
         self.algo_ui_panel.update_for_algorithm(name)
-        self.source_code_panel.load_source_for_algorithm(name)
+        self._show_source_for_algorithm(name)
         self.result_plot_panel.reset_for_algorithm(name)
 
     # ---- algorithm dispatch ----------------------------------------------
@@ -149,7 +157,6 @@ class MainWindow(QMainWindow):
             if "Fuzzy Logic: Car Brake" in name:
                 result = run_fuzzy_car_brake(params.get("speed", 0.0), params.get("distance", 0.0))
                 self.result_plot_panel.show_fuzzy_brake_result(result)
-                self._show_mfile_source("fuzzy_car_brake.m")
             elif "Genetic Algorithm: n-Queens" in name:
                 result = run_ga_nqueens(
                     params.get("n", 8),
@@ -158,8 +165,7 @@ class MainWindow(QMainWindow):
                     params.get("generations", 200),
                 )
                 self.result_plot_panel.show_nqueens_result(result)
-                self._show_mfile_source("ga_nqueens.m")
-            elif "Genetic Algorithm: Traveling Salesman" in name:
+            elif "Genetic Algorithm: Travelling Salesman" in name or "Genetic Algorithm: Traveling Salesman" in name:
                 result = run_ga_tsp(
                     params.get("city_count", 20),
                     params.get("population_size", 200),
@@ -167,7 +173,6 @@ class MainWindow(QMainWindow):
                     params.get("generations", 300),
                 )
                 self.result_plot_panel.show_tsp_result(result)
-                self._show_mfile_source("ga_tsp.m")
             elif "Linear Regression" in name:
                 result = run_linear_regression(
                     params.get("sample_count", 50),
@@ -175,22 +180,26 @@ class MainWindow(QMainWindow):
                     params.get("epochs", 500),
                 )
                 self.result_plot_panel.show_linear_regression_result(result)
-                self._show_mfile_source("linear_regression.m")
             elif "ANN Example 1: Function Estimation" in name:
+                # Wrapper handles Octave-first execution with Python fallback.
                 result = run_ann_func_estimation(
                     params.get("sample_count", 100),
                     params.get("noise", 0.1),
                     params.get("epochs", 200),
                 )
                 self.result_plot_panel.show_ann_func_estimation_result(result)
-                self._show_mfile_source("ann_func_estimation.m")
             elif "ANN Example 2: HDB Classification" in name:
+                # Wrapper handles Octave-first execution with Python fallback.
                 result = run_ann_hdb_classification(
                     params.get("epochs", 300),
                     params.get("learning_rate", 0.01),
                 )
                 self.result_plot_panel.show_ann_hdb_result(result)
-                self._show_mfile_source("ann_hdb_classification.m")
+            else:
+                self._show_error(
+                    "Not yet adapted",
+                    f"{name} is available for source viewing, but execution wiring has not been implemented in the GUI yet.",
+                )
         except Oct2PyError as exc:
             self._show_error(
                 "Octave error",
@@ -199,6 +208,13 @@ class MainWindow(QMainWindow):
             )
         except Exception as exc:
             self._show_error("Unexpected error", str(exc))
+
+    def _show_source_for_algorithm(self, algo_name: str) -> None:
+        filename = self.ALGO_TO_MFILE.get(algo_name)
+        if not filename:
+            self.source_code_panel.load_source_for_algorithm(algo_name)
+            return
+        self._show_mfile_source(filename)
 
     def _show_mfile_source(self, filename: str) -> None:
         base = Path(__file__).resolve().parent.parent

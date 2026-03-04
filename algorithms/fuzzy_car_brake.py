@@ -6,7 +6,10 @@ panels can consume for plotting and display.
 from __future__ import annotations
 
 import numpy as np
-from oct2py import Oct2PyError
+try:
+    from oct2py import Oct2PyError
+except ImportError:  # Keep module importable when oct2py is not installed.
+    Oct2PyError = RuntimeError  # type: ignore
 
 from .octave_bridge import get_oc
 
@@ -23,7 +26,7 @@ def run_fuzzy_car_brake(speed_kmh: float, distance_m: float) -> dict:
     point_value = _eval_single(speed_kmh, distance_m)
 
     # Sweep distance to build a curve (keep speed fixed).
-    distances = np.linspace(1, 100, 80)
+    distances = np.linspace(1, 100, 40)
     outputs = []
     oc = get_oc()
     for d in distances:
