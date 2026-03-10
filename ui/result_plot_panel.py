@@ -1,8 +1,7 @@
 """Result plot panel embedding a Matplotlib canvas.
 
 Serves as the bottom-right quadrant of the GUI, providing visualization
-for algorithm outputs. Currently displays placeholder plots that update
-with the selected algorithm name.
+for algorithm outputs from Octave/Python wrappers.
 """
 from __future__ import annotations
 
@@ -16,9 +15,8 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 class ResultPlotPanel(QWidget):
     """Panel embedding a Matplotlib canvas.
 
-    Represents the bottom-right area of the splitter grid. It will later
-    render actual algorithm results; for now it shows a sample sine wave
-    and updates labels based on selection.
+    Represents the bottom-right area of the splitter grid and renders
+    algorithm-specific charts from normalized result dictionaries.
     """
 
     def __init__(self, parent=None):

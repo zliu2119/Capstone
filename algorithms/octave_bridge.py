@@ -7,6 +7,8 @@ missing by stubbing `spmatrix` used internally by oct2py.
 """
 from __future__ import annotations
 
+import os
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +41,10 @@ def get_oc() -> Oct2Py:
     if _oc is None:
         mfiles_path = Path(__file__).resolve().parent / "mfiles"
         mfiles_path.mkdir(parents=True, exist_ok=True)
+        # Prefer CLI executable to avoid GUI/backend conflicts on macOS.
+        octave_cli = shutil.which("octave-cli")
+        if octave_cli:
+            os.environ.setdefault("OCTAVE_EXECUTABLE", f"{octave_cli} --no-init-file")
         # Work around environments missing scipy.sparse.spmatrix by stubbing it for oct2py.
         try:
             from scipy.sparse import spmatrix  # type: ignore

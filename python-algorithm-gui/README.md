@@ -1,64 +1,54 @@
 # Python Algorithm GUI
 
-This project is a graphical user interface (GUI) for various algorithms, designed to provide an interactive platform for users to explore and utilize different algorithm implementations. The GUI is built using PySide6, allowing for a responsive and user-friendly experience.
+This project is a PySide6 desktop GUI that runs algorithm demos through
+Python wrappers and Octave `.m` models.
 
-## Project Structure
+## Current Runtime Layout
 
-The project is organized as follows:
+Current executable runtime is at repository root:
 
-```
-python-algorithm-gui
-├── src
-│   ├── algorithms
-│   │   ├── __init__.py
-│   │   └── fuzzy_logic.py
-│   ├── ui
-│   │   ├── __init__.py
-│   │   ├── main_window.py
-│   │   └── algo_list_panel.py
-│   └── main.py
-├── requirements.txt
-└── README.md
-```
+- `main.py`
+- `ui/`
+- `algorithms/`
 
-- **src/algorithms/**: Contains algorithm implementations.
-  - `__init__.py`: Initializes the algorithms module.
-  - `fuzzy_logic.py`: Implements fuzzy logic algorithms.
+There is also a legacy mirror under `python-algorithm-gui/src/`.
 
-- **src/ui/**: Contains the user interface components.
-  - `__init__.py`: Initializes the UI module.
-  - `main_window.py`: Defines the main application window and layout.
-  - `algo_list_panel.py`: Displays the list of available algorithms.
+## Requirements
 
-- **src/main.py**: The entry point of the application, responsible for launching the GUI.
+- Python 3.10 (recommended for this repo)
+- GNU Octave
+- Python packages in `python-algorithm-gui/requirements.txt`
 
-- **requirements.txt**: Lists the required Python libraries and dependencies.
+Install packages:
 
-## Installation
-
-To set up the project, follow these steps:
-
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   cd python-algorithm-gui
-   ```
-
-2. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-To run the application, execute the following command:
-
-```
-python src/main.py
+```bash
+python3.10 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip setuptools wheel
+.venv/bin/python -m pip install -r python-algorithm-gui/requirements.txt
 ```
 
-This will launch the algorithm GUI, where you can select and interact with various algorithms.
+## Run (Recommended)
 
-## Contributing
+Use the launcher script (no `activate` required):
 
-Contributions are welcome! If you have suggestions or improvements, please feel free to submit a pull request.
+```bash
+bash run_gui.sh
+```
+
+On macOS you can also double-click:
+
+- `run_gui.command`
+
+Both launchers use `.venv/bin/python` directly and clear common conflicting
+Qt/Conda env vars before startup.
+
+## Run (Manual)
+
+```bash
+.venv/bin/python main.py
+```
+
+## Notes
+
+- Fuzzy brake model is now vectorized/cached to reduce Octave call overhead.
+- Algorithm execution in UI runs in a background thread to keep the window responsive.

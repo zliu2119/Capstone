@@ -6,9 +6,10 @@ panels. Uses QSplitter to allow resizable panes similar to Octave/Matlab.
 """
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal, Slot
 from PySide6.QtWidgets import QMessageBox, QMainWindow, QSplitter, QWidget
 
 from algorithms.ann_func_estimation import run_ann_func_estimation
@@ -17,15 +18,39 @@ from algorithms.fuzzy_car_brake import run_fuzzy_car_brake
 from algorithms.ga_nqueens import run_ga_nqueens
 from algorithms.ga_tsp import run_ga_tsp
 from algorithms.linear_regression_octave import run_linear_regression
-try:
-    from oct2py import Oct2PyError
-except ImportError:  # Allow UI to load without oct2py installed.
-    Oct2PyError = RuntimeError  # type: ignore
 from ui.algo_list_panel import AlgoListPanel
 from ui.algo_ui_panel import AlgoUIPanel
 from ui.menu_bar import MenuBar
 from ui.result_plot_panel import ResultPlotPanel
 from ui.source_code_panel import SourceCodePanel
+
+
+class _RunSignals(QObject):
+    """Signals emitted by a background algorithm run task."""
+
+    succeeded = Signal(str, dict, float)
+    failed = Signal(str, str, str, float)
+
+
+class _RunTask(QRunnable):
+    """Execute one algorithm run in a worker thread."""
+
+    def __init__(self, algo_name: str, params: dict, runner):
+        super().__init__()
+        self.algo_name = algo_name
+        self.params = params
+        self._runner = runner
+        self.signals = _RunSignals()
+
+    def run(self) -> None:
+        started_at = time.perf_counter()
+        try:
+            result = self._runner(self.algo_name, self.params)
+            elapsed = time.perf_counter() - started_at
+            self.signals.succeeded.emit(self.algo_name, result, elapsed)
+        except Exception as exc:
+            elapsed = time.perf_counter() - started_at
+            self.signals.failed.emit(self.algo_name, exc.__class__.__name__, str(exc), elapsed)
 
 
 class MainWindow(QMainWindow):
@@ -65,6 +90,8 @@ class MainWindow(QMainWindow):
         self.algo_ui_panel = AlgoUIPanel()
         self.source_code_panel = SourceCodePanel()
         self.result_plot_panel = ResultPlotPanel()
+        self.thread_pool = QThreadPool.globalInstance()
+        self._is_running = False
 
         self.setWindowTitle("Algorithm GUI")
         self.resize(1200, 800)
@@ -74,6 +101,7 @@ class MainWindow(QMainWindow):
         self._create_menus()
         self._wire_actions()
         self.algo_list_panel.set_algorithms(self.ALGORITHMS)
+        self.statusBar().showMessage("Ready")
 
     def _build_layout(self) -> None:
         """Construct the 2x2 splitter grid that hosts all panels.
@@ -151,63 +179,94 @@ class MainWindow(QMainWindow):
     # ---- algorithm dispatch ----------------------------------------------
 
     def on_run_algorithm(self, algo_name: str, params: dict) -> None:
-        """Dispatch algorithm execution to the correct Octave wrapper."""
-        name = algo_name
+        """Run selected algorithm asynchronously to keep UI responsive."""
+        if self._is_running:
+            self.statusBar().showMessage("A simulation is already running. Please wait.")
+            return
+        self._set_running_state(True, f"Running: {algo_name} ...")
+        task = _RunTask(algo_name, params, self._compute_algorithm_result)
+        task.signals.succeeded.connect(self._on_run_succeeded)
+        task.signals.failed.connect(self._on_run_failed)
+        self.thread_pool.start(task)
+
+    def _compute_algorithm_result(self, name: str, params: dict) -> dict:
+        """Compute algorithm result in worker thread and return data dict."""
+        if "Fuzzy Logic: Car Brake" in name:
+            return run_fuzzy_car_brake(params.get("speed", 0.0), params.get("distance", 0.0))
+        if "Genetic Algorithm: n-Queens" in name:
+            return run_ga_nqueens(
+                params.get("n", 8),
+                params.get("population_size", 200),
+                params.get("mutation_rate", 0.05),
+                params.get("generations", 200),
+            )
+        if "Genetic Algorithm: Travelling Salesman" in name or "Genetic Algorithm: Traveling Salesman" in name:
+            return run_ga_tsp(
+                params.get("city_count", 20),
+                params.get("population_size", 200),
+                params.get("mutation_rate", 0.1),
+                params.get("generations", 300),
+            )
+        if "Linear Regression" in name:
+            return run_linear_regression(
+                params.get("sample_count", 50),
+                params.get("learning_rate", 0.01),
+                params.get("epochs", 500),
+            )
+        if "ANN Example 1: Function Estimation" in name:
+            return run_ann_func_estimation(
+                params.get("sample_count", 100),
+                params.get("noise", 0.1),
+                params.get("epochs", 200),
+            )
+        if "ANN Example 2: HDB Classification" in name:
+            return run_ann_hdb_classification(
+                params.get("epochs", 300),
+                params.get("learning_rate", 0.01),
+            )
+        raise ValueError(f"{name} is not wired for execution.")
+
+    @Slot(str, dict, float)
+    def _on_run_succeeded(self, name: str, result: dict, elapsed: float) -> None:
+        """Apply computed result to plots in UI thread."""
         try:
             if "Fuzzy Logic: Car Brake" in name:
-                result = run_fuzzy_car_brake(params.get("speed", 0.0), params.get("distance", 0.0))
                 self.result_plot_panel.show_fuzzy_brake_result(result)
             elif "Genetic Algorithm: n-Queens" in name:
-                result = run_ga_nqueens(
-                    params.get("n", 8),
-                    params.get("population_size", 200),
-                    params.get("mutation_rate", 0.05),
-                    params.get("generations", 200),
-                )
                 self.result_plot_panel.show_nqueens_result(result)
             elif "Genetic Algorithm: Travelling Salesman" in name or "Genetic Algorithm: Traveling Salesman" in name:
-                result = run_ga_tsp(
-                    params.get("city_count", 20),
-                    params.get("population_size", 200),
-                    params.get("mutation_rate", 0.1),
-                    params.get("generations", 300),
-                )
                 self.result_plot_panel.show_tsp_result(result)
             elif "Linear Regression" in name:
-                result = run_linear_regression(
-                    params.get("sample_count", 50),
-                    params.get("learning_rate", 0.01),
-                    params.get("epochs", 500),
-                )
                 self.result_plot_panel.show_linear_regression_result(result)
             elif "ANN Example 1: Function Estimation" in name:
-                # Wrapper handles Octave-first execution with Python fallback.
-                result = run_ann_func_estimation(
-                    params.get("sample_count", 100),
-                    params.get("noise", 0.1),
-                    params.get("epochs", 200),
-                )
                 self.result_plot_panel.show_ann_func_estimation_result(result)
             elif "ANN Example 2: HDB Classification" in name:
-                # Wrapper handles Octave-first execution with Python fallback.
-                result = run_ann_hdb_classification(
-                    params.get("epochs", 300),
-                    params.get("learning_rate", 0.01),
-                )
                 self.result_plot_panel.show_ann_hdb_result(result)
-            else:
-                self._show_error(
-                    "Not yet adapted",
-                    f"{name} is available for source viewing, but execution wiring has not been implemented in the GUI yet.",
-                )
-        except Oct2PyError as exc:
+            self.statusBar().showMessage(f"Completed: {name} ({elapsed:.2f}s)")
+        finally:
+            self._set_running_state(False)
+
+    @Slot(str, str, str, float)
+    def _on_run_failed(self, name: str, err_type: str, err_msg: str, elapsed: float) -> None:
+        """Show a user-facing error after worker failure."""
+        self._set_running_state(False)
+        if err_type == "Oct2PyError":
             self._show_error(
                 "Octave error",
-                f"Octave raised an error while running {name}:\n{exc}",
+                f"Octave raised an error while running {name}:\n{err_msg}",
                 detail="Make sure required Octave toolboxes are installed and the .m file matches the expected function.",
             )
-        except Exception as exc:
-            self._show_error("Unexpected error", str(exc))
+        else:
+            self._show_error("Run failed", f"{err_type}: {err_msg}")
+        self.statusBar().showMessage(f"Failed: {name} ({elapsed:.2f}s)")
+
+    def _set_running_state(self, running: bool, status_text: str | None = None) -> None:
+        """Update UI controls while a simulation is running."""
+        self._is_running = running
+        self.algo_ui_panel.set_running(running)
+        self.algo_list_panel.list_widget.setEnabled(not running)
+        if status_text:
+            self.statusBar().showMessage(status_text)
 
     def _show_source_for_algorithm(self, algo_name: str) -> None:
         filename = self.ALGO_TO_MFILE.get(algo_name)

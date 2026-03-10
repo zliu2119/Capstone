@@ -23,9 +23,8 @@ from PySide6.QtWidgets import (
 class AlgoUIPanel(QWidget):
     """Panel for algorithm-specific controls.
 
-    Represents the top-right portion of the main splitter grid. Currently
-    shows placeholder text, but will later be extended with forms, sliders,
-    and other inputs relevant to each algorithm.
+    Represents the top-right portion of the main splitter grid and provides
+    per-algorithm parameter forms plus a Run action.
     """
     run_requested = Signal(str, dict)
 
@@ -34,6 +33,7 @@ class AlgoUIPanel(QWidget):
         self.current_algorithm_name: str = ""
         self.stack = QStackedWidget()
         self.placeholder = QLabel("Select an algorithm to configure and run.")
+        self._run_buttons: list[QPushButton] = []
         self.forms: Dict[str, Tuple[QWidget, Callable[[], dict]]] = {}
         self._build_forms()
         self._setup_ui()
@@ -96,8 +96,16 @@ class AlgoUIPanel(QWidget):
             layout.addRow(label, field)
         run_btn = QPushButton("Run")
         run_btn.clicked.connect(on_run)
+        self._run_buttons.append(run_btn)
         layout.addRow(run_btn)
         return widget
+
+    def set_running(self, running: bool) -> None:
+        """Disable all Run buttons while a background job is executing."""
+        label = "Running..." if running else "Run"
+        for btn in self._run_buttons:
+            btn.setEnabled(not running)
+            btn.setText(label)
 
     def _create_fuzzy_form(self) -> Tuple[QWidget, Callable[[], dict]]:
         speed = QDoubleSpinBox()
