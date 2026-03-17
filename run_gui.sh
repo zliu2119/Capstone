@@ -38,6 +38,7 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 add_candidate "${ROOT_DIR}/.venv/bin/python"
 add_candidate "${ROOT_DIR}/.venv_x86/bin/python"
+add_candidate "/opt/anaconda3/envs/tf311/bin/python"
 add_candidate "/opt/anaconda3/bin/python"
 
 PY_BIN=""
@@ -55,6 +56,12 @@ if [ -z "${PY_BIN}" ]; then
   echo "Set ALGO_GUI_PYTHON=/path/to/python and try again."
   exit 1
 fi
+
+# Stability guard for TensorFlow-backed algorithm tabs in this GUI process.
+# This does not affect other projects or notebook sessions.
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:--1}"
+export TF_CPP_MIN_LOG_LEVEL="${TF_CPP_MIN_LOG_LEVEL:-2}"
+export TF_ENABLE_ONEDNN_OPTS="${TF_ENABLE_ONEDNN_OPTS:-0}"
 
 if command -v octave-cli >/dev/null 2>&1; then
   OCT_WRAPPER="${ROOT_DIR}/.cache/octave-cli-no-init.sh"

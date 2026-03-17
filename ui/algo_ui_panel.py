@@ -9,6 +9,7 @@ from typing import Callable, Dict, Tuple
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QLabel,
@@ -68,6 +69,7 @@ class AlgoUIPanel(QWidget):
             "Linear Regression": self._create_linear_regression_form(),
             "ANN Example 1: Function Estimation": self._create_ann_func_form(),
             "ANN Example 2: HDB Classification": self._create_ann_hdb_form(),
+            "Deep Convolutional Module": self._create_deep_conv_form(),
         }
         self.stack.addWidget(self.placeholder)
         for widget, _ in self.forms.values():
@@ -251,11 +253,11 @@ class AlgoUIPanel(QWidget):
         noise = QDoubleSpinBox()
         noise.setRange(0.0, 5.0)
         noise.setSingleStep(0.05)
-        noise.setValue(0.1)
+        noise.setValue(0.05)
 
         epochs = QSpinBox()
         epochs.setRange(10, 10000)
-        epochs.setValue(120)
+        epochs.setValue(400)
 
         def gather():
             params = {"sample_count": samples.value(), "noise": noise.value(), "epochs": epochs.value()}
@@ -271,13 +273,13 @@ class AlgoUIPanel(QWidget):
     def _create_ann_hdb_form(self) -> Tuple[QWidget, Callable[[], dict]]:
         epochs = QSpinBox()
         epochs.setRange(10, 20000)
-        epochs.setValue(140)
+        epochs.setValue(300)
 
         lr = QDoubleSpinBox()
         lr.setRange(0.0001, 1.0)
         lr.setDecimals(4)
         lr.setSingleStep(0.0005)
-        lr.setValue(0.01)
+        lr.setValue(0.03)
 
         def gather():
             params = {"epochs": epochs.value(), "learning_rate": lr.value()}
@@ -289,3 +291,47 @@ class AlgoUIPanel(QWidget):
             gather,
         )
         return widget, lambda: {"epochs": epochs.value(), "learning_rate": lr.value()}
+
+    def _create_deep_conv_form(self) -> Tuple[QWidget, Callable[[], dict]]:
+        model_type = QComboBox()
+        model_type.addItems(["SqueezeNet", "Simple DCNN"])
+
+        train_ratio = QDoubleSpinBox()
+        train_ratio.setRange(0.5, 0.95)
+        train_ratio.setSingleStep(0.05)
+        train_ratio.setValue(0.8)
+
+        epochs = QSpinBox()
+        epochs.setRange(1, 50)
+        epochs.setValue(10)
+
+        batch_size = QSpinBox()
+        batch_size.setRange(16, 512)
+        batch_size.setSingleStep(16)
+        batch_size.setValue(128)
+
+        def gather():
+            params = {
+                "model_type": model_type.currentText(),
+                "train_ratio": train_ratio.value(),
+                "epochs": epochs.value(),
+                "batch_size": batch_size.value(),
+            }
+            self.run_requested.emit(self.current_algorithm_name, params)
+
+        widget = self._create_form(
+            "Deep Convolutional Module (MNIST)",
+            {
+                "Model type": model_type,
+                "Train ratio": train_ratio,
+                "Epochs": epochs,
+                "Batch size": batch_size,
+            },
+            gather,
+        )
+        return widget, lambda: {
+            "model_type": model_type.currentText(),
+            "train_ratio": train_ratio.value(),
+            "epochs": epochs.value(),
+            "batch_size": batch_size.value(),
+        }

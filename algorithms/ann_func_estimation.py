@@ -1,61 +1,18 @@
-"""ANN function estimation wrapper (Octave-first, NumPy fallback).
+"""ANN function estimation wrapper (Python ANN-first, NumPy fallback).
 
 Design intent:
-- Prefer the original Octave implementation when available.
-- Fall back to a deterministic Python approximation when Octave path fails.
+- Prefer a local Python ANN backend (sklearn MLPRegressor).
+- Fall back to a deterministic NumPy approximation if ANN backend is unavailable.
 - Always return a GUI-compatible payload so this demo item never hard-breaks.
 """
 from __future__ import annotations
 
 import numpy as np
 
-from .octave_common import Oct2PyError, call_octave_function
-
-
-def _to_1d(data, *, dtype=float) -> np.ndarray:
-    """Convert scalar/vector-like values into a 1D numpy array."""
-    arr = np.asarray(data, dtype=dtype).squeeze()
-    if arr.ndim == 0:
-        return np.asarray([arr.item()], dtype=dtype)
-    return arr.reshape(-1)
-
 
 def _normalize_inputs(sample_count: int, noise: float, epochs: int) -> tuple[int, float, int]:
     """Clamp user inputs to safe numeric bounds for stable training/display."""
     return max(20, int(sample_count)), max(0.0, float(noise)), max(10, int(epochs))
-
-
-def _normalize_octave_result(raw) -> dict:
-    # Accept multiple Octave return shapes (dict / tuple / scalar) and
-    # convert them to a stable plotting schema used by the GUI.
-    if isinstance(raw, dict):
-        # Most robust shape: named fields returned from Octave.
-        out = {k: _to_1d(v) if hasattr(v, "__len__") else v for k, v in raw.items()}
-        x = out.get("x")
-        y_pred = out.get("y_pred", out.get("y"))
-        y_true = out.get("y_true")
-        if x is None and y_pred is not None:
-            x = np.linspace(0.0, 1.0, _to_1d(y_pred).size)
-        return {
-            "x": _to_1d(x) if x is not None else np.asarray([]),
-            "y_pred": _to_1d(y_pred) if y_pred is not None else np.asarray([]),
-            "y_true": _to_1d(y_true) if y_true is not None else np.asarray([]),
-            "loss_curve": _to_1d(out.get("loss_curve", [])),
-        }
-
-    if isinstance(raw, (list, tuple)):
-        # Legacy shape: positional tuple/list outputs.
-        if len(raw) >= 3:
-            return {"x": _to_1d(raw[0]), "y_pred": _to_1d(raw[1]), "y_true": _to_1d(raw[2]), "loss_curve": np.asarray([])}
-        if len(raw) == 2:
-            return {"x": _to_1d(raw[0]), "y_pred": _to_1d(raw[1]), "y_true": np.asarray([]), "loss_curve": np.asarray([])}
-        if len(raw) == 1:
-            y_pred = _to_1d(raw[0])
-            return {"x": np.linspace(0.0, 1.0, y_pred.size), "y_pred": y_pred, "y_true": np.asarray([]), "loss_curve": np.asarray([])}
-
-    # Last-resort shape: single vector treated as predictions only.
-    y_pred = _to_1d(raw)
-    return {"x": np.linspace(0.0, 1.0, y_pred.size), "y_pred": y_pred, "y_true": np.asarray([]), "loss_curve": np.asarray([])}
 
 
 def _build_feature_matrix(x: np.ndarray) -> np.ndarray:
@@ -74,8 +31,8 @@ def _build_feature_matrix(x: np.ndarray) -> np.ndarray:
     )
 
 
-def _python_fallback(sample_count: int, noise: float, epochs: int, reason: str) -> dict:
-    """Deterministic local approximation when Octave ANN path is unavailable."""
+def _python_curve_fit_fallback(sample_count: int, noise: float, epochs: int, reason: str) -> dict:
+    """Deterministic local approximation when Python ANN backend is unavailable."""
     rng = np.random.default_rng(42)
     x = np.linspace(0.0, 1.0, sample_count)
     y_true = np.sin(2.0 * np.pi * x) + noise * rng.normal(0.0, 1.0, size=sample_count)
@@ -110,15 +67,58 @@ def _python_fallback(sample_count: int, noise: float, epochs: int, reason: str) 
     }
 
 
-def run_ann_func_estimation(sample_count: int = 100, noise: float = 0.0, epochs: int = 200) -> dict:
-    """Run function estimation with Octave-first strategy and safe fallback.
+def _python_ann_backend(sample_count: int, noise: float, epochs: int) -> dict:
+    """Train a compact ANN regressor on noisy sine samples."""
+    from sklearn.neural_network import MLPRegressor
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    rng = np.random.default_rng(42)
+    x = np.linspace(0.0, 1.0, sample_count, dtype=float)
+    y_true = np.sin(2.0 * np.pi * x) + noise * rng.normal(0.0, 1.0, size=sample_count)
+
+    model = make_pipeline(
+        StandardScaler(),
+        MLPRegressor(
+            hidden_layer_sizes=(32, 32),
+            activation="tanh",
+            solver="adam",
+            alpha=1e-4,
+            learning_rate_init=0.01,
+            max_iter=max(10, epochs),
+            random_state=42,
+            early_stopping=False,
+            tol=1e-5,
+        ),
+    )
+    x_in = x.reshape(-1, 1)
+    model.fit(x_in, y_true)
+    y_pred = model.predict(x_in)
+    mlp = model.named_steps.get("mlpregressor")
+    loss_curve = np.asarray(getattr(mlp, "loss_curve_", []), dtype=float)
+
+    return {
+        "x": x,
+        "y_true": y_true,
+        "y_pred": y_pred,
+        "y": y_pred,
+        "loss_curve": loss_curve,
+        "backend": "python-ann",
+        "sample_count": sample_count,
+        "noise": noise,
+        "epochs": epochs,
+    }
+
+
+def run_ann_func_estimation(sample_count: int = 80, noise: float = 0.05, epochs: int = 400) -> dict:
+    """Run function estimation with Python ANN-first strategy and safe fallback.
 
     Algorithm principle
     -------------------
-    Preferred path calls Octave ANN code (`ann_func_estimation.m`) to learn a
-    nonlinear mapping and return predicted curve data. If unavailable, Python
-    fallback approximates the same target with regularized basis expansion,
-    preserving the same UI semantics and data contract.
+    Preferred path trains a compact local ANN (`MLPRegressor`) to learn the
+    nonlinear mapping from x to noisy sine targets and return predicted curve
+    data. If unavailable, deterministic NumPy fallback approximates the same
+    target with regularized basis expansion, preserving UI semantics.
 
     Parameters
     ----------
@@ -132,18 +132,16 @@ def run_ann_func_estimation(sample_count: int = 100, noise: float = 0.0, epochs:
 
     Complexity
     ----------
-    - Octave path: depends on ANN architecture/training internals in .m file.
-    - Python fallback:
+    - Python ANN path: roughly O(sample_count * epochs * hidden_width).
+    - NumPy fallback:
       Feature build O(sample_count), linear solve O(k^3 + sample_count * k^2),
       where k is basis dimension (constant 7 here), effectively near-linear
       in `sample_count` for this fixed demo configuration.
 
     Failure scenarios
     -----------------
-    - Octave runtime missing, kernel/toolbox errors, or bridge exceptions:
+    - scikit-learn unavailable or ANN fit fails:
       fallback activates and returns `backend="python"` plus `message`.
-    - Unexpected Octave output shapes: normalized through dict/tuple/scalar
-      compatibility logic to avoid UI breakage.
 
     Returns
     -------
@@ -153,27 +151,7 @@ def run_ann_func_estimation(sample_count: int = 100, noise: float = 0.0, epochs:
     """
     sample_count, noise, epochs = _normalize_inputs(sample_count, noise, epochs)
     try:
-        # Preferred path: call Octave implementation when available.
-        raw = call_octave_function(
-            "ann_func_estimation",
-            (sample_count, noise, epochs),
-            preferred_nouts=(4,),
-        )
-        data = _normalize_octave_result(raw)
-        data.update(
-            {
-                "y": data.get("y_pred", np.asarray([])),
-                "backend": "octave",
-                "sample_count": sample_count,
-                "noise": noise,
-                "epochs": epochs,
-            }
-        )
-        return data
-    except (Oct2PyError, ImportError, RuntimeError, Exception) as exc:
-        # Broad catch is intentional here:
-        # - Octave bridge failures can surface as varied exception types
-        #   (including backend/kernel/process wrappers outside Oct2PyError).
-        # - For this educational GUI, service continuity is preferred over
-        #   strict failure; we preserve the reason string for diagnostics.
-        return _python_fallback(sample_count, noise, epochs, f"Octave path unavailable: {exc}")
+        return _python_ann_backend(sample_count, noise, epochs)
+    except Exception as exc:
+        # Keep a robust no-crash path for classroom/demo environments.
+        return _python_curve_fit_fallback(sample_count, noise, epochs, f"ANN path unavailable: {exc}")

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QMessageBox, QMainWindow, QSplitter, QWidget
 
 from algorithms.ann_func_estimation import run_ann_func_estimation
 from algorithms.ann_hdb_classification import run_ann_hdb_classification
+from algorithms.deep_convolution_module import run_deep_convolution_module
 from algorithms.fuzzy_car_brake import run_fuzzy_car_brake
 from algorithms.ga_nqueens import run_ga_nqueens
 from algorithms.ga_tsp import run_ga_tsp
@@ -74,6 +75,7 @@ class MainWindow(QMainWindow):
         "4-Linear Regression",
         "5-ANN Example 1: Function Estimation",
         "6-ANN Example 2: HDB Classification",
+        "7-Deep Convolutional Module",
     ]
     ALGO_TO_MFILE = {
         "1-Fuzzy Logic: Car Brake": "fuzzy_car_brake.m",
@@ -82,6 +84,7 @@ class MainWindow(QMainWindow):
         "4-Linear Regression": "linear_regression.m",
         "5-ANN Example 1: Function Estimation": "nn1p.m",
         "6-ANN Example 2: HDB Classification": "nn6_resale1p.m",
+        "7-Deep Convolutional Module": "deep_convolution_module.py",
     }
 
     def __init__(self):
@@ -115,20 +118,20 @@ class MainWindow(QMainWindow):
         top_splitter = QSplitter(Qt.Horizontal)
         top_splitter.addWidget(self.algo_list_panel)
         top_splitter.addWidget(self.algo_ui_panel)
-        top_splitter.setSizes([300, 900])
+        top_splitter.setSizes([280, 920])
 
-        bottom_splitter = QSplitter(Qt.Horizontal)
-        bottom_splitter.addWidget(self.source_code_panel)
-        bottom_splitter.addWidget(self.result_plot_panel)
-        bottom_splitter.setSizes([500, 700])
+        self.bottom_splitter = QSplitter(Qt.Horizontal)
+        self.bottom_splitter.addWidget(self.source_code_panel)
+        self.bottom_splitter.addWidget(self.result_plot_panel)
+        self.bottom_splitter.setSizes([360, 840])
 
-        main_splitter = QSplitter(Qt.Vertical)
-        main_splitter.addWidget(top_splitter)
-        main_splitter.addWidget(bottom_splitter)
-        main_splitter.setSizes([400, 400])
+        self.main_splitter = QSplitter(Qt.Vertical)
+        self.main_splitter.addWidget(top_splitter)
+        self.main_splitter.addWidget(self.bottom_splitter)
+        self.main_splitter.setSizes([360, 440])
 
-        main_splitter.setChildrenCollapsible(False)
-        self.setCentralWidget(main_splitter)
+        self.main_splitter.setChildrenCollapsible(False)
+        self.setCentralWidget(self.main_splitter)
 
     def _create_menus(self) -> None:
         """Populate the Algorithms menu with actions for each algorithm."""
@@ -175,6 +178,12 @@ class MainWindow(QMainWindow):
         self.algo_ui_panel.update_for_algorithm(name)
         self._show_source_for_algorithm(name)
         self.result_plot_panel.reset_for_algorithm(name)
+        if "Deep Convolutional Module" in name:
+            self.bottom_splitter.setSizes([220, 980])
+            self.main_splitter.setSizes([320, 480])
+        else:
+            self.bottom_splitter.setSizes([360, 840])
+            self.main_splitter.setSizes([360, 440])
 
     # ---- algorithm dispatch ----------------------------------------------
 
@@ -217,14 +226,21 @@ class MainWindow(QMainWindow):
             )
         if "ANN Example 1: Function Estimation" in name:
             return run_ann_func_estimation(
-                params.get("sample_count", 100),
-                params.get("noise", 0.1),
-                params.get("epochs", 200),
+                params.get("sample_count", 80),
+                params.get("noise", 0.05),
+                params.get("epochs", 400),
             )
         if "ANN Example 2: HDB Classification" in name:
             return run_ann_hdb_classification(
                 params.get("epochs", 300),
-                params.get("learning_rate", 0.01),
+                params.get("learning_rate", 0.03),
+            )
+        if "Deep Convolutional Module" in name:
+            return run_deep_convolution_module(
+                model_type=params.get("model_type", "SqueezeNet"),
+                train_ratio=params.get("train_ratio", 0.8),
+                epochs=params.get("epochs", 10),
+                batch_size=params.get("batch_size", 128),
             )
         raise ValueError(f"{name} is not wired for execution.")
 
@@ -246,6 +262,8 @@ class MainWindow(QMainWindow):
                 self.result_plot_panel.show_ann_func_estimation_result(result)
             elif "ANN Example 2: HDB Classification" in name:
                 self.result_plot_panel.show_ann_hdb_result(result)
+            elif "Deep Convolutional Module" in name:
+                self.result_plot_panel.show_deep_conv_result(result)
             self.statusBar().showMessage(f"Completed: {name} ({elapsed:.2f}s)")
         finally:
             self._set_running_state(False)
@@ -277,11 +295,19 @@ class MainWindow(QMainWindow):
         if not filename:
             self.source_code_panel.load_source_for_algorithm(algo_name)
             return
+        if filename.endswith(".py"):
+            self._show_py_source(filename)
+            return
         self._show_mfile_source(filename)
 
     def _show_mfile_source(self, filename: str) -> None:
         base = Path(__file__).resolve().parent.parent
         path = base / "algorithms" / "mfiles" / filename
+        self.source_code_panel.load_real_source(str(path))
+
+    def _show_py_source(self, filename: str) -> None:
+        base = Path(__file__).resolve().parent.parent
+        path = base / "algorithms" / filename
         self.source_code_panel.load_real_source(str(path))
 
     def _show_error(self, title: str, message: str, detail: str | None = None) -> None:
