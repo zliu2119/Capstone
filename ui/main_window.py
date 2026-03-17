@@ -191,6 +191,8 @@ class MainWindow(QMainWindow):
 
     def _compute_algorithm_result(self, name: str, params: dict) -> dict:
         """Compute algorithm result in worker thread and return data dict."""
+        # String matching keeps this tolerant to menu label variations
+        # (e.g., Travelling vs Traveling) without duplicating dispatch tables.
         if "Fuzzy Logic: Car Brake" in name:
             return run_fuzzy_car_brake(params.get("speed", 0.0), params.get("distance", 0.0))
         if "Genetic Algorithm: n-Queens" in name:
@@ -230,6 +232,8 @@ class MainWindow(QMainWindow):
     def _on_run_succeeded(self, name: str, result: dict, elapsed: float) -> None:
         """Apply computed result to plots in UI thread."""
         try:
+            # Mirror dispatch criteria from _compute_algorithm_result so data and
+            # renderer stay aligned even when labels include numeric prefixes.
             if "Fuzzy Logic: Car Brake" in name:
                 self.result_plot_panel.show_fuzzy_brake_result(result)
             elif "Genetic Algorithm: n-Queens" in name:

@@ -72,18 +72,24 @@ def normalize_xy(raw, x_label: str = "x", y_label: str = "y"):
         original data layout if conversion is ambiguous.
     """
     if raw is None:
+        # Explicit empty payload contract: plotting code expects both axes.
         return {x_label: np.array([]), y_label: np.array([])}
 
     if hasattr(raw, "keys"):
+        # Preserve dictionary semantics from Octave wrappers when names are
+        # already meaningful (for example {"epoch": ..., "loss": ...}).
         return {k: np.asarray(v) if hasattr(v, "__len__") else v for k, v in raw.items()}
 
     if isinstance(raw, (list, tuple)):
         if len(raw) >= 2:
+            # Standard `(x, y, ...)` shape: ignore extra fields here.
             return {x_label: np.asarray(raw[0]).squeeze(), y_label: np.asarray(raw[1]).squeeze()}
         if len(raw) == 1:
+            # Single vector result becomes y over implicit index x.
             arr = np.asarray(raw[0]).squeeze()
             return {x_label: np.arange(arr.size), y_label: arr}
 
     arr = np.asarray(raw).squeeze()
+    # Scalar/vector fallback: normalize to y over index x.
     x = np.arange(arr.size)
     return {x_label: x, y_label: arr}

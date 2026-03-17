@@ -1,4 +1,8 @@
-"""ANN HDB classification wrapper with Octave-first and NumPy fallback."""
+"""ANN HDB classification wrapper (Octave-first, NumPy fallback).
+
+Guarantees that this algorithm tab always returns plottable outputs even if
+Octave dependencies are missing or partially broken on the host machine.
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -7,6 +11,7 @@ from .octave_common import Oct2PyError, call_octave_function
 
 
 def _to_1d(data, *, dtype=float) -> np.ndarray:
+    """Normalize scalar/vector-like input into a 1D numpy array."""
     arr = np.asarray(data, dtype=dtype).squeeze()
     if arr.ndim == 0:
         return np.asarray([arr.item()], dtype=dtype)
@@ -14,6 +19,7 @@ def _to_1d(data, *, dtype=float) -> np.ndarray:
 
 
 def _normalize_inputs(epochs: int, learning_rate: float) -> tuple[int, float]:
+    """Clamp UI controls to stable training bounds."""
     return max(20, int(epochs)), min(1.0, max(1e-4, float(learning_rate)))
 
 
@@ -31,11 +37,13 @@ def _normalize_octave_result(raw, epochs: int) -> dict:
     accuracy = None
 
     if isinstance(raw, dict):
+        # Preferred shape: named fields from Octave implementation.
         epoch = _to_1d(raw.get("epoch", raw.get("x", epoch)))
         metric = _to_1d(raw.get("metric", raw.get("y", [])))
         if "accuracy" in raw:
             accuracy = float(np.asarray(raw["accuracy"]).squeeze())
     elif isinstance(raw, (list, tuple)):
+        # Compatibility shape: positional outputs.
         if len(raw) >= 2:
             epoch = _to_1d(raw[0])
             metric = _to_1d(raw[1])
@@ -51,6 +59,10 @@ def _normalize_octave_result(raw, epochs: int) -> dict:
         metric = _to_1d(raw)
         epoch = np.arange(1, metric.size + 1)
 
+    # Normalized contract returned here:
+    # - `epoch`: x-axis timeline
+    # - `metric`: loss/score history (y-axis)
+    # - `accuracy`: optional scalar summary
     return {
         "epoch": epoch,
         "metric": metric,
@@ -59,6 +71,7 @@ def _normalize_octave_result(raw, epochs: int) -> dict:
 
 
 def _python_fallback(epochs: int, learning_rate: float, reason: str) -> dict:
+    """Run deterministic softmax-regression fallback with synthetic data."""
     rng = np.random.default_rng(42)
     n_samples = 720
     n_features = 5
@@ -103,6 +116,8 @@ def _python_fallback(epochs: int, learning_rate: float, reason: str) -> dict:
         else:
             stale_steps += 1
             if stale_steps >= patience:
+                # Early-stop when objective plateaus to reduce runtime jitter
+                # and keep UI feedback responsive on slower environments.
                 actual_epochs = i + 1
                 break
 
@@ -120,6 +135,7 @@ def _python_fallback(epochs: int, learning_rate: float, reason: str) -> dict:
     return {
         "epoch": np.arange(1, actual_epochs + 1),
         "metric": metric[:actual_epochs],
+        # Alias keys keep this payload compatible with generic XY plot panels.
         "x": np.arange(1, actual_epochs + 1),
         "y": metric[:actual_epochs],
         "accuracy": accuracy,
@@ -133,7 +149,43 @@ def _python_fallback(epochs: int, learning_rate: float, reason: str) -> dict:
 
 
 def run_ann_hdb_classification(epochs: int = 300, learning_rate: float = 0.01) -> dict:
-    """Run ANN HDB classification with Octave-first execution and fallback."""
+    """Run HDB classification demo with Octave-first execution policy.
+
+    Algorithm principle
+    -------------------
+    Preferred path delegates to Octave ANN classification implementation.
+    Returned training history is normalized to fixed keys (`epoch`, `metric`).
+    If Octave path is unavailable, Python fallback runs deterministic softmax
+    regression on synthetic HDB-like data, preserving expected GUI behavior.
+
+    Parameters
+    ----------
+    epochs : int, optional
+        Maximum training iterations (clamped to a safe lower bound).
+    learning_rate : float, optional
+        Gradient descent step size (clamped into [1e-4, 1.0]).
+
+    Complexity
+    ----------
+    - Octave path: determined by ANN implementation details in .m file.
+    - Python fallback: with n samples, d features, c classes, e epochs:
+      O(e * n * d * c) for forward/backward passes under full-batch updates.
+      In this demo, d and c are small constants, so runtime scales mainly with
+      epochs and sample count.
+
+    Failure scenarios
+    -----------------
+    - Octave bridge/toolbox/runtime failures trigger deterministic fallback.
+    - Returned tuple/dict shape variability is normalized before UI usage.
+    - Fallback includes early stopping on loss plateau to avoid long unstable
+      runs on slower environments.
+
+    Returns
+    -------
+    dict
+        UI-ready result containing `x/y` (aliases of `epoch/metric`), optional
+        `accuracy`, backend provenance, and effective run parameters.
+    """
     epochs, learning_rate = _normalize_inputs(epochs, learning_rate)
     try:
         # Preferred path: use Octave implementation if dependencies exist.
@@ -154,5 +206,6 @@ def run_ann_hdb_classification(epochs: int = 300, learning_rate: float = 0.01) -
         )
         return data
     except (Oct2PyError, ImportError, RuntimeError) as exc:
-        # Fallback path ensures this ANN item still produces a valid result.
+        # Keep this demo tab functional even when Octave toolboxes/runtime are
+        # unavailable; expose root cause via `message`.
         return _python_fallback(epochs, learning_rate, f"Octave path unavailable: {exc}")

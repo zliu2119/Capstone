@@ -1,5 +1,7 @@
-PySide6==6.8.1
-matplotlib==3.10.1
-numpy==2.2.3
-oct2py==5.6.0
-scipy==1.15.2
+PySide6==6.9.2
+matplotlib==3.10.6
+numpy==2.3.5
+oct2py==5.8.0
+scipy==1.16.3
+# Lock transitive dependency used by oct2py runtime in current env.
+octave-kernel==0.36.0

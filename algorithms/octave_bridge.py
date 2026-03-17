@@ -20,6 +20,69 @@ except ImportError:  # Gracefully inform users to install oct2py when missing.
 _oc: Optional[Oct2Py] = None
 
 
+def _patch_octave_engine_for_headless() -> None:
+    """Prevent octave_kernel from forcing graphics_toolkit in headless runs."""
+    try:
+        import octave_kernel.kernel as ok_kernel  # type: ignore
+    except Exception:
+        return
+
+    if getattr(ok_kernel.OctaveEngine, "_algo_gui_headless_patch", False):
+        return
+
+    def _get_plot_settings(self):
+        return getattr(self, "_plot_settings", {})
+
+    def _set_plot_settings(self, settings):
+        # oct2py->octave_kernel normally emits graphics_toolkit(...) for each
+        # call. On this macOS environment no toolkit is available, which floods
+        # stderr and can destabilize startup. We keep plot state bookkeeping but
+        # intentionally skip toolkit selection.
+        #
+        # Maintenance note: this is a compatibility monkey patch against a
+        # third-party internal API. Revisit/remove once upstream behavior allows
+        # a supported "no graphics toolkit" mode.
+        self._plot_settings = settings or {"backend": "default"}
+        try:
+            self.eval("set(0, 'defaultfigurevisible', 'off');", silent=True)
+        except Exception:
+            pass
+
+    ok_kernel.OctaveEngine.plot_settings = property(_get_plot_settings, _set_plot_settings)  # type: ignore[assignment]
+    ok_kernel.OctaveEngine._algo_gui_headless_patch = True  # type: ignore[attr-defined]
+
+
+def _ensure_octave_cli_options() -> None:
+    """Force Octave to skip site init scripts that may set invalid toolkits."""
+    # Append flags instead of overwriting so user-provided options still apply.
+    required_flags = ("--no-site-file", "--no-window-system")
+    current = os.environ.get("OCTAVE_CLI_OPTIONS", "")
+    merged = current
+    for flag in required_flags:
+        if flag not in merged:
+            merged = f"{merged} {flag}".strip()
+    os.environ["OCTAVE_CLI_OPTIONS"] = merged
+
+
+def _ensure_octave_wrapper(project_root: Path) -> None:
+    """Set OCTAVE_EXECUTABLE to a wrapper that disables user init files."""
+    if os.environ.get("OCTAVE_EXECUTABLE"):
+        return
+    octave_cli = shutil.which("octave-cli")
+    if not octave_cli:
+        return
+    cache_dir = project_root / ".cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    wrapper_path = cache_dir / "octave-cli-no-init.sh"
+    wrapper_path.write_text(
+        "#!/usr/bin/env bash\n"
+        f'exec "{octave_cli}" --no-init-file --no-window-system "$@"\n',
+        encoding="utf-8",
+    )
+    wrapper_path.chmod(0o755)
+    os.environ["OCTAVE_EXECUTABLE"] = str(wrapper_path)
+
+
 def get_oc() -> Oct2Py:
     """Return a shared Oct2Py session with the mfiles path configured.
 
@@ -39,12 +102,12 @@ def get_oc() -> Oct2Py:
         )
     global _oc
     if _oc is None:
+        project_root = Path(__file__).resolve().parent.parent
         mfiles_path = Path(__file__).resolve().parent / "mfiles"
         mfiles_path.mkdir(parents=True, exist_ok=True)
-        # Prefer CLI executable to avoid GUI/backend conflicts on macOS.
-        octave_cli = shutil.which("octave-cli")
-        if octave_cli:
-            os.environ.setdefault("OCTAVE_EXECUTABLE", f"{octave_cli} --no-init-file")
+        _patch_octave_engine_for_headless()
+        _ensure_octave_cli_options()
+        _ensure_octave_wrapper(project_root)
         # Work around environments missing scipy.sparse.spmatrix by stubbing it for oct2py.
         try:
             from scipy.sparse import spmatrix  # type: ignore

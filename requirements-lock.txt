@@ -1,0 +1,18 @@
+# Locked dependency set for Algorithm GUI runtime
+# Generated on 2026-03-17 from working interpreter: /opt/anaconda3/bin/python (Python 3.13.9)
+
+# Core app dependencies
+PySide6==6.9.2
+matplotlib==3.10.6
+numpy==2.3.5
+oct2py==5.8.0
+scipy==1.16.3
+octave-kernel==0.36.0
+
+# Runtime-critical transitive pins for oct2py/octave-kernel stack
+ipykernel==6.31.0
+jupyter-client==8.6.3
+jupyter-core==5.9.1
+metakernel==0.30.3
+pyzmq==27.1.0
+traitlets==5.14.3
