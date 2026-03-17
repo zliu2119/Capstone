@@ -19,11 +19,15 @@ Primary runtime lives at repository root:
   - `oct2py`
   - `numpy`
   - `matplotlib`
+  - `scikit-learn`
 - GNU Octave (`octave-cli` recommended)
+- Optional for Algorithm 7: a Python interpreter with `tensorflow` + `sklearn`
+  (set `ALGO_GUI_TF_PYTHON` if it differs from GUI runtime)
 
 Base dependency file:
 
 - `python-algorithm-gui/requirements.txt`
+- `python-algorithm-gui/requirements-windows.txt` (Windows)
 
 Locked reproducible set:
 
@@ -37,6 +41,14 @@ Example (venv):
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip setuptools wheel
 .venv/bin/python -m pip install -r python-algorithm-gui/requirements.txt
+```
+
+Windows (PowerShell):
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip setuptools wheel
+.\.venv\Scripts\python -m pip install -r python-algorithm-gui\requirements-windows.txt
 ```
 
 ## Run
@@ -64,6 +76,12 @@ Manual run:
 python main.py
 ```
 
+Windows manual run:
+
+```powershell
+.\.venv\Scripts\python main.py
+```
+
 ## Operational Notes
 
 - `run_gui.command` filters one known macOS input-method noise line only:
@@ -71,3 +89,5 @@ python main.py
 - Octave is started with headless-safe flags via wrapper and
   `OCTAVE_CLI_OPTIONS=--no-site-file --no-window-system`.
 - Algorithm execution is threaded in the UI to keep the window responsive.
+- ANN Example 1 and ANN Example 2 use Python-first implementations in the
+  current codebase; Octave remains required for Octave-backed modules.

@@ -1,6 +1,10 @@
-# Octave models
+# Octave model files
 
-Place the Octave `.m` model files for each algorithm in this folder so the GUI can load and display them. Expected filenames:
+Place Octave `.m` files in this folder so the GUI can load and display
+algorithm source and execute Octave-backed modules. Some ANN modules are now
+Python-first, but their legacy `.m` files are still kept here for reference.
+
+Expected filenames:
 
 - `fuzzy_car_brake.m`
 - `ga_nqueens.m`

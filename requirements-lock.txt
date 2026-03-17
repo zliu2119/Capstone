@@ -7,6 +7,7 @@ matplotlib==3.10.6
 numpy==2.3.5
 oct2py==5.8.0
 scipy==1.16.3
+scikit-learn==1.7.2
 octave-kernel==0.36.0
 
 # Runtime-critical transitive pins for oct2py/octave-kernel stack
@@ -16,3 +17,7 @@ jupyter-core==5.9.1
 metakernel==0.30.3
 pyzmq==27.1.0
 traitlets==5.14.3
+
+# Runtime-critical transitive pins for scikit-learn stack
+joblib==1.5.2
+threadpoolctl==3.5.0

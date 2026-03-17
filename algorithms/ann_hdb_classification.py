@@ -8,14 +8,6 @@ from __future__ import annotations
 import numpy as np
 
 
-def _to_1d(data, *, dtype=float) -> np.ndarray:
-    """Normalize scalar/vector-like input into a 1D numpy array."""
-    arr = np.asarray(data, dtype=dtype).squeeze()
-    if arr.ndim == 0:
-        return np.asarray([arr.item()], dtype=dtype)
-    return arr.reshape(-1)
-
-
 def _normalize_inputs(epochs: int, learning_rate: float) -> tuple[int, float]:
     """Clamp UI controls to stable training bounds."""
     return max(20, int(epochs)), min(1.0, max(1e-4, float(learning_rate)))
@@ -27,49 +19,8 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
     return ex / np.sum(ex, axis=1, keepdims=True)
 
 
-def _normalize_octave_result(raw, epochs: int) -> dict:
-    # Normalize flexible Octave outputs into a fixed schema:
-    # epoch (x-axis), metric (loss/score), and optional accuracy.
-    epoch = np.arange(1, epochs + 1)
-    metric = np.asarray([], dtype=float)
-    accuracy = None
-
-    if isinstance(raw, dict):
-        # Preferred shape: named fields from Octave implementation.
-        epoch = _to_1d(raw.get("epoch", raw.get("x", epoch)))
-        metric = _to_1d(raw.get("metric", raw.get("y", [])))
-        if "accuracy" in raw:
-            accuracy = float(np.asarray(raw["accuracy"]).squeeze())
-    elif isinstance(raw, (list, tuple)):
-        # Compatibility shape: positional outputs.
-        if len(raw) >= 2:
-            epoch = _to_1d(raw[0])
-            metric = _to_1d(raw[1])
-            if len(raw) >= 3:
-                try:
-                    accuracy = float(np.asarray(raw[2]).squeeze())
-                except Exception:
-                    accuracy = None
-        elif len(raw) == 1:
-            metric = _to_1d(raw[0])
-            epoch = np.arange(1, metric.size + 1)
-    else:
-        metric = _to_1d(raw)
-        epoch = np.arange(1, metric.size + 1)
-
-    # Normalized contract returned here:
-    # - `epoch`: x-axis timeline
-    # - `metric`: loss/score history (y-axis)
-    # - `accuracy`: optional scalar summary
-    return {
-        "epoch": epoch,
-        "metric": metric,
-        "accuracy": accuracy,
-    }
-
-
-def _python_fallback(epochs: int, learning_rate: float, reason: str | None = None) -> dict:
-    """Run deterministic softmax-regression fallback with synthetic data."""
+def _python_classifier(epochs: int, learning_rate: float, reason: str | None = None) -> dict:
+    """Run deterministic softmax-regression classifier on synthetic data."""
     rng = np.random.default_rng(42)
     n_samples = 720
     n_features = 5
@@ -184,6 +135,6 @@ def run_ann_hdb_classification(epochs: int = 300, learning_rate: float = 0.03) -
     """
     epochs, learning_rate = _normalize_inputs(epochs, learning_rate)
     try:
-        return _python_fallback(epochs, learning_rate)
+        return _python_classifier(epochs, learning_rate)
     except Exception as exc:
-        return _python_fallback(epochs, learning_rate, f"ANN path unavailable: {exc}")
+        return _python_classifier(epochs, learning_rate, f"ANN path unavailable: {exc}")

@@ -1,0 +1,27 @@
+# Windows dependency set for Algorithm GUI
+# Recommended Python: 3.11.x (64-bit)
+#
+# Core GUI + Octave bridge + ANN(5/6) Python backends.
+PySide6==6.9.2
+matplotlib==3.10.6
+numpy==2.3.5
+scipy==1.16.3
+oct2py==5.8.0
+octave-kernel==0.36.0
+scikit-learn==1.7.2
+
+# Runtime-critical transitive pins (improve reproducibility on clean Windows hosts)
+ipykernel==6.31.0
+jupyter-client==8.6.3
+jupyter-core==5.9.1
+metakernel==0.30.3
+pyzmq==27.1.0
+traitlets==5.14.3
+joblib==1.5.2
+threadpoolctl==3.5.0
+
+# Optional (Algorithm 7 only):
+# Install TensorFlow in a separate Python environment and set:
+#   ALGO_GUI_TF_PYTHON=C:\path\to\tf-env\python.exe
+# Example optional package on Windows CPU:
+# tensorflow-cpu==2.18.0

@@ -12,7 +12,7 @@ has_required_modules() {
   local py="$1"
   # Keep the probe minimal and import-only: this avoids GUI startup side effects
   # while still proving the interpreter can satisfy runtime requirements.
-  "${py}" -c "import importlib.util,sys;mods=('PySide6','oct2py','numpy','matplotlib');sys.exit(0 if all(importlib.util.find_spec(m) for m in mods) else 1)" >/dev/null 2>&1
+  "${py}" -c "import importlib.util,sys;mods=('PySide6','oct2py','numpy','matplotlib','sklearn');sys.exit(0 if all(importlib.util.find_spec(m) for m in mods) else 1)" >/dev/null 2>&1
 }
 
 add_candidate() {

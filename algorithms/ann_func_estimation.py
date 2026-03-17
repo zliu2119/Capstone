@@ -47,7 +47,7 @@ def _python_curve_fit_fallback(sample_count: int, noise: float, epochs: int, rea
     y_pred = design @ weights
 
     # Provide a synthetic convergence trace so the GUI can still expose
-    # training progress semantics when the Octave ANN path is unavailable.
+    # training progress semantics when the ANN backend is unavailable.
     start_scale = max(0.25, float(np.mean((y_true - np.mean(y_true)) ** 2)))
     final_loss = float(np.mean((y_pred - y_true) ** 2))
     decay = np.exp(-np.linspace(0.0, 5.0, epochs))

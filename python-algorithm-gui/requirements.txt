@@ -3,5 +3,6 @@ matplotlib==3.10.6
 numpy==2.3.5
 oct2py==5.8.0
 scipy==1.16.3
+scikit-learn==1.7.2
 # Lock transitive dependency used by oct2py runtime in current env.
 octave-kernel==0.36.0
