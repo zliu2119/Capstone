@@ -65,7 +65,46 @@ def _ensure_octave_cli_options() -> None:
 
 
 def _ensure_octave_wrapper(project_root: Path) -> None:
-    """Set OCTAVE_EXECUTABLE to a wrapper that disables user init files."""
+    """Set OCTAVE_EXECUTABLE in a platform-safe way.
+
+    - Windows: always use a native `octave-cli.exe` path (no shell wrappers).
+    - POSIX: use a tiny wrapper script to enforce startup flags.
+    """
+    # Windows cannot execute a POSIX .sh wrapper; using one yields
+    # [WinError 193] "%1 is not a valid Win32 application".
+    if os.name == "nt":
+        env_value = os.environ.get("OCTAVE_EXECUTABLE", "").strip()
+        if env_value and env_value.lower().endswith(".sh"):
+            os.environ.pop("OCTAVE_EXECUTABLE", None)
+            env_value = ""
+        if env_value and Path(env_value).is_file():
+            return
+
+        candidates: list[str] = []
+        explicit = os.environ.get("ALGO_GUI_OCTAVE_EXE", "").strip()
+        if explicit:
+            candidates.append(explicit)
+        for bin_name in ("octave-cli.exe", "octave-cli"):
+            found = shutil.which(bin_name)
+            if found:
+                candidates.append(found)
+
+        # Probe typical GNU Octave installs in Program Files.
+        program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+        octave_root = Path(program_files) / "GNU Octave"
+        if octave_root.exists():
+            for exe_path in sorted(
+                octave_root.glob("Octave-*/mingw64/bin/octave-cli.exe"),
+                reverse=True,
+            ):
+                candidates.append(str(exe_path))
+
+        for candidate in candidates:
+            if candidate and Path(candidate).is_file():
+                os.environ["OCTAVE_EXECUTABLE"] = candidate
+                return
+        return
+
     if os.environ.get("OCTAVE_EXECUTABLE"):
         return
     octave_cli = shutil.which("octave-cli")
