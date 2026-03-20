@@ -101,7 +101,9 @@ def run_deep_convolution_module(
     env.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
     env.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 
-    timeout_s = max(240, cfg.epochs * 25)
+    # Give slower CPU-only teaching/demo machines enough time to finish the
+    # TensorFlow subprocess, including first-run dataset download overhead.
+    timeout_s = max(900, cfg.epochs * 90)
     proc = subprocess.run(
         [py, str(worker), json.dumps(payload)],
         capture_output=True,
