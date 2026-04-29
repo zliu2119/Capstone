@@ -11,6 +11,11 @@ Primary runtime lives at repository root:
 - `algorithms/`
 - `run_gui.sh`
 - `run_gui.command`
+- `python-algorithm-gui/requirements.txt`
+- `python-algorithm-gui/requirements-windows.txt`
+
+Run all commands from the repository root, which is the folder containing
+`main.py`.
 
 ## Requirements
 
@@ -35,7 +40,7 @@ Locked reproducible set:
 
 ## Install
 
-Example (venv):
+macOS/Linux example (venv):
 
 ```bash
 python3 -m venv .venv
@@ -43,7 +48,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r python-algorithm-gui/requirements.txt
 ```
 
-Windows (PowerShell):
+Windows example (PowerShell):
 
 ```powershell
 py -3.11 -m venv .venv
@@ -51,9 +56,35 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python -m pip install -r python-algorithm-gui\requirements-windows.txt
 ```
 
+If `py -3.11` is not available, install Python 3.11 from python.org or replace
+that command with the full path to an installed Python executable.
+
+## Windows Octave Setup
+
+Several algorithms are backed by bundled Octave `.m` files, so Windows machines
+need GNU Octave installed before running those modules.
+
+1. Install GNU Octave for Windows.
+2. Confirm that `octave-cli.exe` exists. Typical locations look like:
+
+```text
+C:\Program Files\GNU Octave\Octave-*\mingw64\bin\octave-cli.exe
+```
+
+3. If the GUI cannot find Octave automatically, set `ALGO_GUI_OCTAVE_EXE` in the
+   same PowerShell session before launching the GUI:
+
+```powershell
+$env:ALGO_GUI_OCTAVE_EXE="C:\Program Files\GNU Octave\Octave-9.2.0\mingw64\bin\octave-cli.exe"
+.\.venv\Scripts\python main.py
+```
+
+Adjust the Octave version number in the path to match the installed folder on
+the target machine.
+
 ## Run
 
-Recommended:
+Recommended on macOS/Linux:
 
 ```bash
 bash run_gui.sh
@@ -76,11 +107,29 @@ Manual run:
 python main.py
 ```
 
-Windows manual run:
+Windows manual run from the repository root:
 
 ```powershell
 .\.venv\Scripts\python main.py
 ```
+
+## Algorithm 7 Optional TensorFlow Setup
+
+Algorithm 7 (`Deep Convolutional Module`) requires TensorFlow. This dependency
+is intentionally optional because TensorFlow installation is more platform
+specific than the core GUI stack.
+
+The first six algorithms can run without TensorFlow. To enable Algorithm 7 on
+Windows, install TensorFlow in a separate Python environment and point the GUI to
+that interpreter:
+
+```powershell
+$env:ALGO_GUI_TF_PYTHON="C:\path\to\tf-env\python.exe"
+.\.venv\Scripts\python main.py
+```
+
+On Windows CPU-only machines, `tensorflow-cpu` is usually the appropriate
+package for that separate environment.
 
 ## Operational Notes
 
@@ -88,6 +137,20 @@ Windows manual run:
   `IMKCFRunLoopWakeUpReliable`.
 - Octave is started with headless-safe flags via wrapper and
   `OCTAVE_CLI_OPTIONS=--no-site-file --no-window-system`.
+- On Windows, the GUI uses a native `octave-cli.exe` path. If Octave is not on
+  `PATH`, set `ALGO_GUI_OCTAVE_EXE`.
 - Algorithm execution is threaded in the UI to keep the window responsive.
 - ANN Example 1 and ANN Example 2 use Python-first implementations in the
   current codebase; Octave remains required for Octave-backed modules.
+
+## Troubleshooting
+
+- `No usable Python runtime found`: install the listed Python dependencies in
+  `.venv`, then run `.\.venv\Scripts\python main.py` on Windows or
+  `.venv/bin/python main.py` on macOS/Linux.
+- `Octave error` or Octave not found on Windows: install GNU Octave and set
+  `ALGO_GUI_OCTAVE_EXE` to the full `octave-cli.exe` path.
+- Algorithm 7 reports that no deep-learning interpreter was found: configure
+  `ALGO_GUI_TF_PYTHON`, or skip Algorithm 7 and run Algorithms 1-6.
+- Always start the app from the repository root so the GUI can locate `ui/`,
+  `algorithms/`, and `algorithms/mfiles/`.
